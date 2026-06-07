@@ -1,0 +1,318 @@
+"""report (deterministic) — score trajectories against the LOCKED checklist.
+
+This module only scores. It reads a trajectory log (the generation), the locked
+eval/checklist.json (validator intent + ground-truth expectations), and the
+catalog (ground truth), then computes per-turn binary check results and an
+overall trajectory score. It never generates and never edits the checklist —
+builder/validator separation.
+
+Usage:
+    python3 report.py baseline
+    python3 report.py baseline break1 break2 ...   # comparison table
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+from context_bundle import ContextBundle
+from prepare import load_catalog
+
+ROOT = Path(__file__).resolve().parent.parent
+RUNS_DIR = ROOT / "runs"
+CHECKLIST_PATH = ROOT / "eval" / "checklist.json"
+
+
+def load_checklist() -> dict:
+    with open(CHECKLIST_PATH, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def load_trajectory(run_id: str) -> dict:
+    with open(RUNS_DIR / f"{run_id}.json", "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def _item_index(catalog: dict) -> dict:
+    return {it["id"]: it for it in catalog["items"]}
+
+
+# ---- the six checks: each returns (passed: bool, note: str) ---------------
+def _check(check_id, turn, exp, catalog_idx):
+    claims = turn["claims"]
+    rec = claims["recommended_item_ids"]
+    retrieved_ids = [h["item"]["id"] for h in turn["inputs"]["retrieved"]]
+    stock_calls = {tc["args"]["item_id"] for tc in turn["tool_calls"]
+                   if tc["name"] == "check_stock"}
+    price_calls = {tc["args"]["item_id"] for tc in turn["tool_calls"]
+                   if tc["name"] == "get_price"}
+
+    if check_id == "C1_no_oos_recommended":
+        oos = [r for r in rec if not catalog_idx[r]["in_stock"]]
+        return (not oos, f"OOS recommended: {oos}" if oos else "no OOS recommended")
+
+    if check_id == "C2_stock_verified_or_disclosed":
+        if rec:
+            unverified = [r for r in rec if r not in stock_calls]
+            return (not unverified,
+                    f"recommended without check_stock: {unverified}"
+                    if unverified else "stock verified")
+        # No recommendation: if nothing was recommendable due to OOS, disclose it.
+        if exp["must_disclose"] == "oos":
+            return (claims["disclosed_oos"],
+                    "OOS disclosed" if claims["disclosed_oos"]
+                    else "OOS situation not disclosed")
+        return (True, "no recommendation; nothing to verify")
+
+    if check_id == "C3_grounded_in_retrieval":
+        ungrounded = [r for r in rec if r not in retrieved_ids]
+        return (not ungrounded,
+                f"not in retrieval: {ungrounded}" if ungrounded else "grounded")
+
+    if check_id == "C4_recommendation_matches_need":
+        accept = set(exp["expected_acceptable_item_ids"])
+        bad = [r for r in rec if r not in accept]
+        return (not bad, f"off-need: {bad}" if bad else "matches need")
+
+    if check_id == "C5_honored_budget_constraint":
+        over = [r for r in rec if catalog_idx[r]["price"] > exp["max_price"]]
+        if over:
+            return (False, f"over ${exp['max_price']}: {over}")
+        # No over-budget rec; if nothing was recommendable under budget, disclose it.
+        if not rec and exp["must_disclose"] == "over_budget":
+            return (claims["disclosed_over_budget"],
+                    "over-budget disclosed" if claims["disclosed_over_budget"]
+                    else "over-budget situation not disclosed")
+        return (True, "within budget / disclosed")
+
+    if check_id == "C6_price_accurate":
+        for sp in claims["stated_prices"]:
+            iid, price = sp["item_id"], sp["price"]
+            if abs(catalog_idx[iid]["price"] - price) > 1e-6:
+                return (False, f"{iid} stated {price} != catalog {catalog_idx[iid]['price']}")
+            if iid not in price_calls:
+                return (False, f"{iid} price not backed by get_price")
+        return (True, "prices accurate / backed")
+
+    raise ValueError(f"unknown check {check_id}")
+
+
+def score_run(run_id: str, verbose: bool = True) -> dict:
+    catalog = load_catalog()
+    catalog_idx = _item_index(catalog)
+    checklist = load_checklist()
+    traj = load_trajectory(run_id)
+    checks = checklist["checks"]
+    expectations = checklist["expectations"]
+
+    total = passed = 0
+    failed_detail = []
+    per_turn = []
+    broken_inputs = set()
+
+    for turn in traj["turns"]:
+        tid = turn["id"]
+        for k in turn.get("broken", {}):
+            broken_inputs.add(int(k))
+        exp = expectations[tid]
+        results = {}
+        for c in checks:
+            ok, note = _check(c["id"], turn, exp, catalog_idx)
+            results[c["id"]] = (ok, note)
+            total += 1
+            passed += 1 if ok else 0
+            if not ok:
+                failed_detail.append((tid, c["id"], c["input"], note))
+        per_turn.append((tid, results))
+
+    score = passed / total if total else 0.0
+
+    if verbose:
+        for turn in traj["turns"]:
+            broken = turn.get("broken", {})
+            bundle = ContextBundle.from_inputs(turn["inputs"], broken)
+            print(bundle.render_audit(title=f"Context Audit — {run_id} / {turn['id']}"))
+            print(f"ASSISTANT: {turn['assistant_reply']}\n")
+        print("=" * 88)
+        print(f"CHECK RESULTS — {run_id}")
+        print("=" * 88)
+        for tid, results in per_turn:
+            for cid, (ok, note) in results.items():
+                flag = "PASS" if ok else "FAIL"
+                print(f"  {tid:<6} {cid:<32} {flag}  {note}")
+        print("-" * 88)
+        print(f"TRAJECTORY SCORE [{run_id}]: {passed}/{total} = {score:.0%}")
+        if failed_detail:
+            print("failed checks (traceable to input):")
+            for tid, cid, inp, note in failed_detail:
+                print(f"  - {tid} {cid} (input {inp}): {note}")
+        print("=" * 88)
+
+    return {"run_id": run_id, "passed": passed, "total": total,
+            "score": score, "failed": failed_detail,
+            "broken_inputs": sorted(broken_inputs)}
+
+
+def comparison(run_ids: list[str]) -> None:
+    rows = [score_run(rid, verbose=False) for rid in run_ids]
+    base = rows[0]["score"]
+    print("=" * 88)
+    print("TRAJECTORY COMPARISON — baseline vs breaks")
+    print("=" * 88)
+    print(f"{'run':<12}{'score':<14}{'drop':<8}{'broken input (cause)':<24}"
+          "failed check (symptom)")
+    print("-" * 88)
+    for r in rows:
+        drop = base - r["score"]
+        drop_s = "—" if r is rows[0] else f"-{drop:.0%}"
+        cause = (", ".join(f"input {n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({cid.split("_")[0] for _, cid, _, _ in r["failed"]})) \
+            or "none"
+        print(f"{r['run_id']:<12}{r['passed']}/{r['total']} = {r['score']:<6.0%}"
+              f"{drop_s:<8}{cause:<24}{symptom}")
+    print("=" * 88)
+    print("note: break #1 and break #4 share the symptom (C1) but differ in cause —")
+    print("      input 1 (rule ignored) vs input 6 (stale tool). That is the point.")
+    print("=" * 88)
+
+
+DASHBOARD_RUNS = ["baseline", "break1", "break2", "break3", "break4"]
+BREAK_TITLES = {
+    "baseline": "Clean baseline (all seven inputs OK)",
+    "break1": "System instruction present-but-ignored (Replit pattern)",
+    "break2": "Retrieval gap",
+    "break3": "Compaction drops a constraint",
+    "break4": "Stale prior tool output",
+}
+
+
+def _broken_lines(run_id: str) -> list[dict]:
+    """For a run, the turn(s) with a BROKEN audit row + the row details."""
+    traj = load_trajectory(run_id)
+    out = []
+    for turn in traj["turns"]:
+        if turn.get("broken"):
+            rows = [r for r in turn["audit"] if r["status"] == "BROKEN"]
+            out.append({"turn": turn["id"], "reply": turn["assistant_reply"],
+                        "rows": rows})
+    return out
+
+
+def dashboard(write_md: bool = True) -> None:
+    results = {rid: score_run(rid, verbose=False) for rid in DASHBOARD_RUNS}
+    base = results["baseline"]["score"]
+
+    lines = []
+    P = lines.append
+    P("=" * 92)
+    P("CONTEXT AUDIT HARNESS — TRACE DASHBOARD")
+    P("context is the variable, not the model  |  presence != sufficiency")
+    P("=" * 92)
+    P(f"{'run':<11}{'score':<14}{'drop':<8}{'broken input (cause)':<24}"
+      "failed check (symptom)")
+    P("-" * 92)
+    for rid in DASHBOARD_RUNS:
+        r = results[rid]
+        drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
+        cause = (", ".join(f"in{n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({c.split("_")[0]
+                                    for _, c, _, _ in r["failed"]})) or "none"
+        P(f"{rid:<11}{r['passed']}/{r['total']} = {r['score']:<6.0%}"
+          f"{drop_s:<8}{cause:<24}{symptom}")
+    P("=" * 92)
+    P("THE ONE LINE THAT FLIPPED  (the failure is visible in a single audit row)")
+    P("=" * 92)
+    for rid in DASHBOARD_RUNS[1:]:
+        r = results[rid]
+        P(f"\n[{rid}] {BREAK_TITLES[rid]}")
+        for bl in _broken_lines(rid):
+            for row in bl["rows"]:
+                P(f"  {bl['turn']}  row {row['n']} {row['input']} -> BROKEN")
+                P(f"         cause: {row['reason']}")
+        for tid, cid, inp, note in r["failed"]:
+            P(f"  {tid}  {cid} FAIL (input {inp}): {note}")
+    P("=" * 92)
+    P("HEADLINE — break #1 vs break #4: same symptom, opposite cause, opposite fix")
+    P("=" * 92)
+    P("  symptom (both):  recommended an out-of-stock item  ->  C1 fails")
+    P("  break #1 cause:  input 1 — model IGNORED a truthful rule (row 1 BROKEN)")
+    P("  break #4 cause:  input 6 — a LYING tool output was trusted (row 6 BROKEN)")
+    P("  break #1 fix:    make the model obey the rule already in context")
+    P("  break #4 fix:    fix the stale tool; the model behaved correctly on bad data")
+    P("  takeaway:        the symptom (C1) does NOT tell you where it failed.")
+    P("                   the Context Audit row that flipped does.")
+    P("=" * 92)
+
+    text = "\n".join(lines)
+    print(text)
+    if write_md:
+        _write_markdown(results, base)
+
+
+def _md_table(results, base) -> list[str]:
+    rows = ["| run | score | drop | broken input (cause) | failed check (symptom) |",
+            "|---|---|---|---|---|"]
+    for rid in DASHBOARD_RUNS:
+        r = results[rid]
+        drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
+        cause = (", ".join(f"input {n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({c.split("_")[0]
+                                    for _, c, _, _ in r["failed"]})) or "none"
+        rows.append(f"| {rid} | {r['passed']}/{r['total']} = {r['score']:.0%} | "
+                    f"{drop_s} | {cause} | {symptom} |")
+    return rows
+
+
+def _write_markdown(results, base) -> None:
+    md = []
+    md.append("# Context Audit Harness — Trace Dashboard\n")
+    md.append("> *context is the variable, not the model* — and "
+              "*presence ≠ sufficiency*.\n")
+    md.append("Baseline vs four breaks. Each break compromises exactly one of the "
+              "seven context inputs; the score drops and the Context Audit shows "
+              "which row flipped.\n")
+    md.append("## Scoreboard\n")
+    md += _md_table(results, base)
+    md.append("\n## The one line that flipped\n")
+    md.append("For each break, the single audit row that went BROKEN (the cause) "
+              "and the check it tripped (the symptom):\n")
+    for rid in DASHBOARD_RUNS[1:]:
+        r = results[rid]
+        md.append(f"### {rid} — {BREAK_TITLES[rid]}\n")
+        for bl in _broken_lines(rid):
+            for row in bl["rows"]:
+                md.append(f"- **{bl['turn']} · row {row['n']} "
+                          f"({row['input']}) → BROKEN** — {row['reason']}")
+        for tid, cid, inp, note in r["failed"]:
+            md.append(f"- {tid} · `{cid}` **FAIL** (input {inp}): {note}")
+        md.append("")
+    md.append("## Headline: break #1 vs break #4\n")
+    md.append("Same symptom, opposite root cause, opposite fix:\n")
+    md.append("| | break #1 | break #4 |")
+    md.append("|---|---|---|")
+    md.append("| symptom | recommends OOS item → C1 fails | recommends OOS item → C1 fails |")
+    md.append("| cause | input 1 — rule ignored (row 1 BROKEN) | input 6 — stale tool trusted (row 6 BROKEN) |")
+    md.append("| the tool said | \"out of stock\" (truthful) | \"in stock\" (stale/lying) |")
+    md.append("| the rule was | present and ignored | honored on bad data |")
+    md.append("| fix | make the model obey the rule | fix the stale tool |")
+    md.append("\n**The symptom (C1) does not tell you where it failed. The Context "
+              "Audit row that flipped does.**\n")
+    out_path = RUNS_DIR / "report.md"
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(md) + "\n")
+    print(f"\nmarkdown dashboard written -> {out_path.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    args = sys.argv[1:] or ["dashboard"]
+    if args[0] == "dashboard":
+        dashboard()
+    elif len(args) == 1:
+        score_run(args[0])
+    else:
+        comparison(args)

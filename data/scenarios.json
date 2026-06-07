@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "description": "Clean multi-turn home-goods conversation. Exercises all seven inputs; honors the anchor rule and the under-$60 commitment.",
+    "max_price": 60,
+    "memory_seed": [
+      "User is furnishing a new apartment kitchen.",
+      "User prefers items under $60."
+    ],
+    "initial_compaction": "Standing constraints: recommend in-stock items only; keep recommendations under $60.",
+    "turns": [
+      {
+        "id": "turn1",
+        "user_query": "I'd like an electric coffee maker for the kitchen, under $60.",
+        "retrieval_query": "electric coffee maker"
+      },
+      {
+        "id": "turn2",
+        "user_query": "Nice. Anything to keep the coffee hot after it's brewed?",
+        "retrieval_query": "keep coffee hot warm carafe"
+      },
+      {
+        "id": "turn3",
+        "user_query": "Could you suggest an espresso maker?",
+        "retrieval_query": "espresso maker"
+      },
+      {
+        "id": "turn4",
+        "user_query": "And some pots and pans for cooking?",
+        "retrieval_query": "pots and pans cookware"
+      }
+    ]
+  }
+}
