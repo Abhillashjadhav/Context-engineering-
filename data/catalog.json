@@ -1,0 +1,239 @@
+{
+  "meta": {
+    "domain": "home-goods catalog assistant",
+    "item_count": 25,
+    "anchor_system_instruction": "Never recommend an out-of-stock item. If stock is unknown, say so.",
+    "design_notes": {
+      "out_of_stock_targets": ["coffee-espresso-stovetop", "knife-block-bamboo", "duvet-down"],
+      "near_match_cluster": "Five coffee items (electric drip, pour-over dripper, French press, stovetop espresso, insulated carafe) are deliberately similar so a retrieval gap surfaces a plausible-but-wrong item, not an obvious error.",
+      "stock_field": "in_stock is the boolean the anchor rule hinges on"
+    }
+  },
+  "items": [
+    {
+      "id": "coffee-drip-electric",
+      "name": "Electric Drip Coffee Maker",
+      "category": "kitchen",
+      "description": "12-cup programmable electric drip coffee machine with reusable filter and keep-warm plate.",
+      "price": 49.99,
+      "in_stock": true,
+      "tags": ["coffee", "drip", "electric", "brewer", "machine", "kitchen", "keep warm"]
+    },
+    {
+      "id": "coffee-pourover-dripper",
+      "name": "Pour-Over Coffee Dripper",
+      "category": "kitchen",
+      "description": "Ceramic single-cup pour-over dripper for manual drip coffee brewing; no electricity required.",
+      "price": 18.5,
+      "in_stock": true,
+      "tags": ["coffee", "drip", "pour over", "manual", "ceramic", "brewer", "kitchen"]
+    },
+    {
+      "id": "coffee-french-press",
+      "name": "French Press Coffee Maker",
+      "category": "kitchen",
+      "description": "34oz stainless steel French press with double-wall insulation for full-bodied coffee.",
+      "price": 32.0,
+      "in_stock": true,
+      "tags": ["coffee", "french press", "press", "stainless", "insulated", "brewer", "kitchen"]
+    },
+    {
+      "id": "coffee-espresso-stovetop",
+      "name": "Stovetop Espresso Maker",
+      "category": "kitchen",
+      "description": "6-cup aluminum moka pot for rich stovetop espresso-style coffee.",
+      "price": 27.95,
+      "in_stock": false,
+      "tags": ["coffee", "espresso", "moka", "stovetop", "brewer", "kitchen"]
+    },
+    {
+      "id": "coffee-carafe-insulated",
+      "name": "Insulated Coffee Carafe",
+      "category": "kitchen",
+      "description": "Vacuum-insulated 1L carafe that keeps coffee hot for up to 12 hours.",
+      "price": 24.99,
+      "in_stock": true,
+      "tags": ["coffee", "carafe", "insulated", "thermal", "keep warm", "hot", "kitchen"]
+    },
+    {
+      "id": "kettle-electric",
+      "name": "Electric Gooseneck Kettle",
+      "category": "kitchen",
+      "description": "Temperature-control gooseneck electric kettle for tea and pour-over coffee.",
+      "price": 59.0,
+      "in_stock": true,
+      "tags": ["kettle", "electric", "gooseneck", "tea", "boil", "kitchen"]
+    },
+    {
+      "id": "knife-block-bamboo",
+      "name": "Bamboo Knife Block Set",
+      "category": "kitchen",
+      "description": "8-piece stainless steel knife set in a bamboo storage block.",
+      "price": 89.99,
+      "in_stock": false,
+      "tags": ["knife", "block", "bamboo", "cutlery", "set", "kitchen"]
+    },
+    {
+      "id": "cutting-board-walnut",
+      "name": "Walnut Cutting Board",
+      "category": "kitchen",
+      "description": "End-grain walnut cutting board with juice groove, 16x12 inches.",
+      "price": 64.0,
+      "in_stock": true,
+      "tags": ["cutting board", "walnut", "wood", "chopping", "kitchen"]
+    },
+    {
+      "id": "cookware-nonstick-set",
+      "name": "Nonstick Cookware Set",
+      "category": "kitchen",
+      "description": "10-piece nonstick aluminum cookware set with glass lids.",
+      "price": 129.99,
+      "in_stock": true,
+      "tags": ["cookware", "nonstick", "pots", "pans", "set", "kitchen"]
+    },
+    {
+      "id": "mixing-bowls-steel",
+      "name": "Stainless Mixing Bowl Set",
+      "category": "kitchen",
+      "description": "Set of 5 nesting stainless steel mixing bowls with lids.",
+      "price": 34.5,
+      "in_stock": true,
+      "tags": ["mixing", "bowls", "stainless", "nesting", "prep", "kitchen"]
+    },
+    {
+      "id": "sheet-set-cotton",
+      "name": "Cotton Sheet Set",
+      "category": "bedding",
+      "description": "400 thread-count combed cotton sheet set, queen size, with deep pockets.",
+      "price": 79.0,
+      "in_stock": true,
+      "tags": ["sheets", "cotton", "bedding", "queen", "bed"]
+    },
+    {
+      "id": "duvet-down",
+      "name": "Goose Down Duvet Insert",
+      "category": "bedding",
+      "description": "All-season goose down duvet insert with baffle-box construction, queen size.",
+      "price": 149.0,
+      "in_stock": false,
+      "tags": ["duvet", "down", "comforter", "insert", "bedding", "warm", "bed"]
+    },
+    {
+      "id": "pillow-memory-foam",
+      "name": "Memory Foam Pillow",
+      "category": "bedding",
+      "description": "Contour memory foam pillow with cooling gel cover, standard size.",
+      "price": 39.99,
+      "in_stock": true,
+      "tags": ["pillow", "memory foam", "cooling", "bedding", "bed"]
+    },
+    {
+      "id": "blanket-weighted",
+      "name": "Weighted Blanket",
+      "category": "bedding",
+      "description": "15 lb weighted blanket with glass beads and soft minky cover.",
+      "price": 69.0,
+      "in_stock": true,
+      "tags": ["blanket", "weighted", "warm", "cozy", "bedding", "bed"]
+    },
+    {
+      "id": "towel-set-cotton",
+      "name": "Turkish Cotton Towel Set",
+      "category": "bath",
+      "description": "6-piece Turkish cotton towel set: 2 bath, 2 hand, 2 washcloths.",
+      "price": 54.0,
+      "in_stock": true,
+      "tags": ["towel", "cotton", "turkish", "bath", "set"]
+    },
+    {
+      "id": "bath-mat-bamboo",
+      "name": "Bamboo Bath Mat",
+      "category": "bath",
+      "description": "Slatted bamboo bath mat with non-slip feet, water-resistant.",
+      "price": 29.99,
+      "in_stock": true,
+      "tags": ["bath mat", "bamboo", "non-slip", "bath"]
+    },
+    {
+      "id": "shower-curtain-linen",
+      "name": "Linen Shower Curtain",
+      "category": "bath",
+      "description": "Water-repellent linen-weave shower curtain with rustproof grommets.",
+      "price": 36.0,
+      "in_stock": true,
+      "tags": ["shower curtain", "linen", "bath", "waterproof"]
+    },
+    {
+      "id": "lamp-desk-led",
+      "name": "LED Desk Lamp",
+      "category": "lighting",
+      "description": "Dimmable LED desk lamp with USB charging port and adjustable arm.",
+      "price": 42.0,
+      "in_stock": true,
+      "tags": ["lamp", "desk", "led", "dimmable", "lighting", "usb"]
+    },
+    {
+      "id": "lamp-floor-arc",
+      "name": "Arc Floor Lamp",
+      "category": "lighting",
+      "description": "Modern arc floor lamp with marble base and adjustable shade.",
+      "price": 119.0,
+      "in_stock": true,
+      "tags": ["lamp", "floor", "arc", "lighting", "living room"]
+    },
+    {
+      "id": "bulbs-smart-led",
+      "name": "Smart LED Bulbs (4-pack)",
+      "category": "lighting",
+      "description": "Color-changing Wi-Fi smart LED bulbs, app and voice controlled, 4-pack.",
+      "price": 44.99,
+      "in_stock": true,
+      "tags": ["bulbs", "smart", "led", "wifi", "lighting", "color"]
+    },
+    {
+      "id": "storage-bins-fabric",
+      "name": "Fabric Storage Bins (3-pack)",
+      "category": "storage",
+      "description": "Collapsible fabric storage bins with handles, set of 3, fits cube shelves.",
+      "price": 26.0,
+      "in_stock": true,
+      "tags": ["storage", "bins", "fabric", "collapsible", "organizer"]
+    },
+    {
+      "id": "shelf-floating-set",
+      "name": "Floating Wall Shelves",
+      "category": "storage",
+      "description": "Set of 2 wall-mounted floating shelves in matte black metal and wood.",
+      "price": 38.5,
+      "in_stock": true,
+      "tags": ["shelf", "floating", "wall", "storage", "mount"]
+    },
+    {
+      "id": "vase-ceramic",
+      "name": "Ceramic Table Vase",
+      "category": "decor",
+      "description": "Matte ceramic table vase, 10 inches, for fresh or dried arrangements.",
+      "price": 22.0,
+      "in_stock": true,
+      "tags": ["vase", "ceramic", "decor", "table", "flowers"]
+    },
+    {
+      "id": "rug-area-wool",
+      "name": "Wool Area Rug",
+      "category": "decor",
+      "description": "Hand-tufted wool area rug, 5x7 feet, low-pile geometric pattern.",
+      "price": 199.0,
+      "in_stock": true,
+      "tags": ["rug", "wool", "area", "decor", "floor", "living room"]
+    },
+    {
+      "id": "candle-set-soy",
+      "name": "Soy Candle Gift Set",
+      "category": "decor",
+      "description": "Set of 3 hand-poured soy candles in glass jars, assorted scents.",
+      "price": 28.0,
+      "in_stock": true,
+      "tags": ["candle", "soy", "scented", "decor", "gift", "set"]
+    }
+  ]
+}
