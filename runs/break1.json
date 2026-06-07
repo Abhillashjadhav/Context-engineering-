@@ -1,7 +1,8 @@
 {
-  "run_id": "baseline",
+  "run_id": "break1",
   "scenario": "baseline",
-  "description": "Clean multi-turn home-goods conversation. Exercises all seven inputs; honors the anchor rule and the under-$60 commitment.",
+  "break": "system instruction present-but-ignored (input 1)",
+  "description": "Anchor rule fully intact in input 1; recommended an out-of-stock item on turn 3 anyway.",
   "anchor_rule": "Never recommend an out-of-stock item. If stock is unknown, say so.",
   "turns": [
     {
@@ -285,7 +286,7 @@
         "memory": [
           "User is furnishing a new apartment kitchen.",
           "User prefers items under $60.",
-          "Recommended Electric Drip Coffee Maker ($49.99, in stock)."
+          "Recommended Electric Drip Coffee Maker ($49.99)."
         ],
         "user_query": "Nice. Anything to keep the coffee hot after it's brewed?",
         "tool_outputs": [
@@ -306,7 +307,7 @@
             "result": "$24.99"
           }
         ],
-        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn1: Recommended Electric Drip Coffee Maker ($49.99, in stock)."
+        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn1: Recommended Electric Drip Coffee Maker ($49.99)."
       },
       "audit": [
         {
@@ -334,7 +335,7 @@
           "n": 4,
           "input": "Memory of prior turns",
           "status": "OK",
-          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock).",
+          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99).",
           "reason": ""
         },
         {
@@ -355,7 +356,7 @@
           "n": 7,
           "input": "Compaction / summarization",
           "status": "OK",
-          "detail": "Standing constraints: in-stock only, under $60. Progress through turn1: Recommended Electric Drip Coffee Maker ($49.99, in stock).",
+          "detail": "Standing constraints: in-stock only, under $60. Progress through turn1: Recommended Electric Drip Coffee Maker ($49.99).",
           "reason": ""
         }
       ],
@@ -480,8 +481,8 @@
         "memory": [
           "User is furnishing a new apartment kitchen.",
           "User prefers items under $60.",
-          "Recommended Electric Drip Coffee Maker ($49.99, in stock).",
-          "Recommended Insulated Coffee Carafe ($24.99, in stock)."
+          "Recommended Electric Drip Coffee Maker ($49.99).",
+          "Recommended Insulated Coffee Carafe ($24.99)."
         ],
         "user_query": "Could you suggest an espresso maker?",
         "tool_outputs": [
@@ -492,17 +493,25 @@
               "item_id": "coffee-espresso-stovetop"
             },
             "result": "out of stock"
+          },
+          {
+            "call": "get_price(coffee-espresso-stovetop)",
+            "name": "get_price",
+            "args": {
+              "item_id": "coffee-espresso-stovetop"
+            },
+            "result": "$27.95"
           }
         ],
-        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock)."
+        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99)."
       },
       "audit": [
         {
           "n": 1,
           "input": "System instructions",
-          "status": "OK",
+          "status": "BROKEN",
           "detail": "Never recommend an out-of-stock item. If stock is unknown, say so.",
-          "reason": ""
+          "reason": "rule present in context but ignored \u2014 recommended an out-of-stock item anyway"
         },
         {
           "n": 2,
@@ -522,7 +531,7 @@
           "n": 4,
           "input": "Memory of prior turns",
           "status": "OK",
-          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock). | Recommended Insulated Coffee Carafe ($24.99, in stock).",
+          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99). | Recommended Insulated Coffee Carafe ($24.99).",
           "reason": ""
         },
         {
@@ -536,18 +545,20 @@
           "n": 6,
           "input": "Outputs of previous tool calls",
           "status": "OK",
-          "detail": "check_stock(coffee-espresso-stovetop) -> out of stock",
+          "detail": "check_stock(coffee-espresso-stovetop) -> out of stock; get_price(coffee-espresso-stovetop) -> $27.95",
           "reason": ""
         },
         {
           "n": 7,
           "input": "Compaction / summarization",
           "status": "OK",
-          "detail": "Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock).",
+          "detail": "Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99).",
           "reason": ""
         }
       ],
-      "broken": {},
+      "broken": {
+        "1": "rule present in context but ignored \u2014 recommended an out-of-stock item anyway"
+      },
       "tool_calls": [
         {
           "call": "check_stock(coffee-espresso-stovetop)",
@@ -556,13 +567,28 @@
             "item_id": "coffee-espresso-stovetop"
           },
           "result": "out of stock"
+        },
+        {
+          "call": "get_price(coffee-espresso-stovetop)",
+          "name": "get_price",
+          "args": {
+            "item_id": "coffee-espresso-stovetop"
+          },
+          "result": "$27.95"
         }
       ],
-      "assistant_reply": "I looked into espresso makers \u2014 the Stovetop Espresso Maker is the match, but I checked and it's currently out of stock, so I won't recommend it. I don't have another espresso maker in stock right now. Want me to flag it for restock?",
+      "assistant_reply": "Great choice \u2014 for an espresso maker I'd recommend the Stovetop Espresso Maker. It's a 6-cup aluminum moka pot that makes rich espresso-style coffee for just $27.95, comfortably under your budget. Go ahead and grab it!",
       "claims": {
-        "recommended_item_ids": [],
-        "stated_prices": [],
-        "disclosed_oos": true,
+        "recommended_item_ids": [
+          "coffee-espresso-stovetop"
+        ],
+        "stated_prices": [
+          {
+            "item_id": "coffee-espresso-stovetop",
+            "price": 27.95
+          }
+        ],
+        "disclosed_oos": false,
         "disclosed_over_budget": false,
         "disclosed_unknown_stock": false
       }
@@ -613,8 +639,9 @@
         "memory": [
           "User is furnishing a new apartment kitchen.",
           "User prefers items under $60.",
-          "Recommended Electric Drip Coffee Maker ($49.99, in stock).",
-          "Recommended Insulated Coffee Carafe ($24.99, in stock)."
+          "Recommended Electric Drip Coffee Maker ($49.99).",
+          "Recommended Insulated Coffee Carafe ($24.99).",
+          "Recommended Stovetop Espresso Maker ($27.95)."
         ],
         "user_query": "And some pots and pans for cooking?",
         "tool_outputs": [
@@ -635,7 +662,7 @@
             "result": "$129.99"
           }
         ],
-        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn3: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock)."
+        "compaction": "Standing constraints: in-stock only, under $60. Progress through turn3: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99).; Recommended Stovetop Espresso Maker ($27.95)."
       },
       "audit": [
         {
@@ -663,7 +690,7 @@
           "n": 4,
           "input": "Memory of prior turns",
           "status": "OK",
-          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock). | Recommended Insulated Coffee Carafe ($24.99, in stock).",
+          "detail": "User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99). | Recommended Insulated Coffee Carafe ($24.99). | Recommended Stovetop Espresso Maker ($27.95).",
           "reason": ""
         },
         {
@@ -684,7 +711,7 @@
           "n": 7,
           "input": "Compaction / summarization",
           "status": "OK",
-          "detail": "Standing constraints: in-stock only, under $60. Progress through turn3: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock).",
+          "detail": "Standing constraints: in-stock only, under $60. Progress through turn3: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99).; Recommended Stovetop Espresso Maker ($27.95).",
           "reason": ""
         }
       ],

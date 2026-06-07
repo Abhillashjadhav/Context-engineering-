@@ -54,12 +54,17 @@ def _check(check_id, turn, exp, catalog_idx):
         return (not oos, f"OOS recommended: {oos}" if oos else "no OOS recommended")
 
     if check_id == "C2_stock_verified_or_disclosed":
-        unverified = [r for r in rec if r not in stock_calls]
-        if unverified:
-            return (False, f"recommended without check_stock: {unverified}")
-        if exp["must_disclose"] == "oos" and not claims["disclosed_oos"]:
-            return (False, "OOS situation not disclosed")
-        return (True, "stock verified / disclosed")
+        if rec:
+            unverified = [r for r in rec if r not in stock_calls]
+            return (not unverified,
+                    f"recommended without check_stock: {unverified}"
+                    if unverified else "stock verified")
+        # No recommendation: if nothing was recommendable due to OOS, disclose it.
+        if exp["must_disclose"] == "oos":
+            return (claims["disclosed_oos"],
+                    "OOS disclosed" if claims["disclosed_oos"]
+                    else "OOS situation not disclosed")
+        return (True, "no recommendation; nothing to verify")
 
     if check_id == "C3_grounded_in_retrieval":
         ungrounded = [r for r in rec if r not in retrieved_ids]
@@ -75,8 +80,11 @@ def _check(check_id, turn, exp, catalog_idx):
         over = [r for r in rec if catalog_idx[r]["price"] > exp["max_price"]]
         if over:
             return (False, f"over ${exp['max_price']}: {over}")
-        if exp["must_disclose"] == "over_budget" and not claims["disclosed_over_budget"]:
-            return (False, "over-budget situation not disclosed")
+        # No over-budget rec; if nothing was recommendable under budget, disclose it.
+        if not rec and exp["must_disclose"] == "over_budget":
+            return (claims["disclosed_over_budget"],
+                    "over-budget disclosed" if claims["disclosed_over_budget"]
+                    else "over-budget situation not disclosed")
         return (True, "within budget / disclosed")
 
     if check_id == "C6_price_accurate":

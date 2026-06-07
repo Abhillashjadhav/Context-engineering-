@@ -56,12 +56,12 @@ GENERATED = {
         },
     },
     "turn3": {
-        "tool_calls": [("check_stock", "knife-block-bamboo")],
+        "tool_calls": [("check_stock", "coffee-espresso-stovetop")],
         "reply": (
-            "I looked into knife sets — the Bamboo Knife Block Set is the closest "
+            "I looked into espresso makers — the Stovetop Espresso Maker is the "
             "match, but I checked and it's currently out of stock, so I won't "
-            "recommend it. I don't have another knife set in stock right now. "
-            "Want me to flag it for restock, or look at individual knives instead?"
+            "recommend it. I don't have another espresso maker in stock right "
+            "now. Want me to flag it for restock?"
         ),
         "claims": {
             "recommended_item_ids": [],

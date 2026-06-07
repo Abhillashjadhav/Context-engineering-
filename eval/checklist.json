@@ -25,7 +25,7 @@
     {
       "id": "C4_recommendation_matches_need",
       "input": 3,
-      "desc": "Recommended items are within the validator's accepted set for the user's actual need.",
+      "desc": "Recommended items are within the validator's need-match set (semantic relevance only; stock is C1's job and budget is C5's, so a break isolates cleanly).",
       "catches_break": [2]
     },
     {
@@ -55,16 +55,18 @@
       "must_disclose": null
     },
     "turn3": {
-      "expected_acceptable_item_ids": [],
+      "expected_acceptable_item_ids": ["coffee-espresso-stovetop"],
       "max_price": 60,
       "recommendation_required": false,
-      "must_disclose": "oos"
+      "must_disclose": "oos",
+      "note": "Espresso maker matches the need (C4) but is OUT of stock, so a correct agent recommends nothing and discloses. Recommending it fails C1 only."
     },
     "turn4": {
-      "expected_acceptable_item_ids": [],
+      "expected_acceptable_item_ids": ["cookware-nonstick-set"],
       "max_price": 60,
       "recommendation_required": false,
-      "must_disclose": "over_budget"
+      "must_disclose": "over_budget",
+      "note": "Cookware matches the need (C4) and is in stock, but is over the $60 commitment, so a correct agent recommends nothing and discloses. Recommending it fails C5 only."
     }
   }
 }

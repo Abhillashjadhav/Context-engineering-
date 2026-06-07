@@ -20,8 +20,8 @@
       },
       {
         "id": "turn3",
-        "user_query": "Great. Now I need a good knife set.",
-        "retrieval_query": "knife set"
+        "user_query": "Could you suggest an espresso maker?",
+        "retrieval_query": "espresso maker"
       },
       {
         "id": "turn4",
