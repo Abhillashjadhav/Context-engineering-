@@ -1,0 +1,130 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Context Audit Harness — V1 vs V2 diff</title><style>
+:root{--ok:#1a7f37;--gap:#6e7781;--broken:#cf222e;--bg:#0d1117;--panel:#161b22;
+--line:#30363d;--txt:#e6edf3;--sub:#8b949e;--hi:#3d2c00;--chg:#1c2a3a;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:0;padding:32px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.thesis{color:var(--sub);margin:0 0 24px}
+table{border-collapse:collapse;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:#1f2630;color:var(--sub);font-weight:600}
+.num{text-align:center;white-space:nowrap}.inp{white-space:nowrap;color:var(--sub)}
+.sub{color:var(--sub);font-size:12px}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;color:#fff}
+.badge.ok{background:var(--ok)}.badge.gap{background:var(--gap)}.badge.broken{background:var(--broken)}
+.detail{margin-top:4px;color:var(--txt);font-size:12.5px;white-space:pre-wrap}
+.reason{margin-top:5px;color:#ffb4ab;font-size:11.5px;font-style:italic}
+.broken-row{background:rgba(207,34,46,.14)}.changed-row{background:var(--chg)}
+.mark{color:var(--broken);font-weight:700;white-space:nowrap;font-size:12px}
+.scoreboard .break-row td{border-left:0}.ok-row{background:rgba(26,127,55,.10)}
+.meta{color:var(--sub);margin:6px 0 10px}
+.replies{display:flex;gap:14px;margin:12px 0}
+.reply{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px}
+.reply .tag{display:block;color:var(--sub);font-size:11px;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.reply.v1{border-left:3px solid var(--ok)}.reply.v2{border-left:3px solid var(--broken)}
+.failed{margin:10px 0 0;padding-left:18px;color:#ffb4ab;font-size:12.5px}
+.failed code{color:#ffd7d5}
+.contrast td:first-child{color:var(--sub);white-space:nowrap}
+.punch{margin:14px 0 0;font-size:15px;font-weight:700;color:#ffd7d5}
+.legend{margin:8px 0 0;color:var(--sub);font-size:12px}
+footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
+</style></head>
+<body>
+<h1>Context Audit Harness — V1 vs V2 diff</h1>
+<p class="thesis">V1 = clean baseline &nbsp;·&nbsp; V2 = broken run &nbsp;|&nbsp;
+   <i>context is the variable, not the model — presence ≠ sufficiency</i></p>
+
+<h2>Scoreboard</h2>
+<table class="scoreboard"><tr><th>run</th><th>score</th><th>drop vs V1</th><th>broken input (cause)</th><th>failed check (symptom)</th></tr><tr class="ok-row"><td><b>baseline</b><br><span class="sub">Clean baseline (all seven inputs OK)</span></td><td class="num">24/24<br>100%</td><td class="num">—</td><td>none</td><td>none</td></tr><tr class="break-row"><td><b>break1</b><br><span class="sub">System instruction present-but-ignored (Replit pattern)</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 1</td><td>C1</td></tr><tr class="break-row"><td><b>break2</b><br><span class="sub">Retrieval gap</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 3</td><td>C4</td></tr><tr class="break-row"><td><b>break3</b><br><span class="sub">Compaction drops a constraint</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 4, input 7</td><td>C5</td></tr><tr class="break-row"><td><b>break4</b><br><span class="sub">Stale prior tool output</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 6</td><td>C1</td></tr></table>
+<p class="legend">Each break compromises exactly one input; the score drops and
+   the audit row that flipped names the cause.
+   <span class="badge ok">OK</span>
+   <span class="badge gap">GAP</span>
+   <span class="badge broken">BROKEN</span></p>
+
+
+    <section class="break">
+      <h2>break1 — System instruction present-but-ignored (Replit pattern)</h2>
+      <p class="meta">break turn: <b>turn3</b> &middot; broken input(s):
+         <b>input 1</b></p>
+      <table class="audit">
+        <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
+            <th>V2 — break1 (broken)</th><th></th></tr>
+        <tr class="broken-row"><td class="num">1</td><td class="inp">System instructions</td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td><span class="badge broken">BROKEN</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div><div class="reason">BREAK: rule present in context but ignored — recommended an out-of-stock item anyway</div></td><td class="mark">◀ broke here</td></tr><tr class=""><td class="num">2</td><td class="inp">Tools the model can call</td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td class="mark"></td></tr><tr class=""><td class="num">3</td><td class="inp">Retrieved knowledge</td><td><span class="badge ok">OK</span><div class="detail">Stovetop Espresso Maker[OUT](s=9); Electric Drip Coffee Maker[in](s=3); French Press Coffee Maker[in](s=3)</div></td><td><span class="badge ok">OK</span><div class="detail">Stovetop Espresso Maker[OUT](s=9); Electric Drip Coffee Maker[in](s=3); French Press Coffee Maker[in](s=3)</div></td><td class="mark"></td></tr><tr class="changed-row"><td class="num">4</td><td class="inp">Memory of prior turns</td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock). | Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99). | Recommended Insulated Coffee Carafe ($24.99).</div></td><td class="mark">changed</td></tr><tr class=""><td class="num">5</td><td class="inp">User query</td><td><span class="badge ok">OK</span><div class="detail">Could you suggest an espresso maker?</div></td><td><span class="badge ok">OK</span><div class="detail">Could you suggest an espresso maker?</div></td><td class="mark"></td></tr><tr class="changed-row"><td class="num">6</td><td class="inp">Outputs of previous tool calls</td><td><span class="badge ok">OK</span><div class="detail">check_stock(coffee-espresso-stovetop) -&gt; out of stock</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock(coffee-espresso-stovetop) -&gt; out of stock; get_price(coffee-espresso-stovetop) -&gt; $27.95</div></td><td class="mark">changed</td></tr><tr class="changed-row"><td class="num">7</td><td class="inp">Compaction / summarization</td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99).</div></td><td class="mark">changed</td></tr>
+      </table>
+      <div class="replies">
+        <div class="reply v1"><span class="tag">V1 reply</span>I looked into espresso makers — the Stovetop Espresso Maker is the match, but I checked and it&#x27;s currently out of stock, so I won&#x27;t recommend it. I don&#x27;t have another espresso maker in stock right now. Want me to flag it for restock?</div>
+        <div class="reply v2"><span class="tag">V2 reply</span>Great choice — for an espresso maker I&#x27;d recommend the Stovetop Espresso Maker. It&#x27;s a 6-cup aluminum moka pot that makes rich espresso-style coffee for just $27.95, comfortably under your budget. Go ahead and grab it!</div>
+      </div>
+      <ul class="failed"><li><code>C1_no_oos_recommended</code> <b>FAIL</b> on turn3 (input 1): OOS recommended: [&#x27;coffee-espresso-stovetop&#x27;]</li></ul>
+    </section>
+    <section class="break">
+      <h2>break2 — Retrieval gap</h2>
+      <p class="meta">break turn: <b>turn1</b> &middot; broken input(s):
+         <b>input 3</b></p>
+      <table class="audit">
+        <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
+            <th>V2 — break2 (broken)</th><th></th></tr>
+        <tr class=""><td class="num">1</td><td class="inp">System instructions</td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td class="mark"></td></tr><tr class=""><td class="num">2</td><td class="inp">Tools the model can call</td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td class="mark"></td></tr><tr class="broken-row"><td class="num">3</td><td class="inp">Retrieved knowledge</td><td><span class="badge ok">OK</span><div class="detail">Electric Drip Coffee Maker[in](s=15); French Press Coffee Maker[in](s=9); Electric Gooseneck Kettle[in](s=7)</div></td><td><span class="badge broken">BROKEN</span><div class="detail">Pour-Over Coffee Dripper[in](s=7); French Press Coffee Maker[in](s=5); Insulated Coffee Carafe[in](s=4)</div><div class="reason">BREAK: retrieval missed the electric drip maker the user asked for and surfaced a plausible near-match (manual pour-over) instead</div></td><td class="mark">◀ broke here</td></tr><tr class=""><td class="num">4</td><td class="inp">Memory of prior turns</td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60.</div></td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60.</div></td><td class="mark"></td></tr><tr class=""><td class="num">5</td><td class="inp">User query</td><td><span class="badge ok">OK</span><div class="detail">I&#x27;d like an electric coffee maker for the kitchen, under $60.</div></td><td><span class="badge ok">OK</span><div class="detail">I&#x27;d like an electric coffee maker for the kitchen, under $60.</div></td><td class="mark"></td></tr><tr class="changed-row"><td class="num">6</td><td class="inp">Outputs of previous tool calls</td><td><span class="badge ok">OK</span><div class="detail">check_stock(coffee-drip-electric) -&gt; in stock; get_price(coffee-drip-electric) -&gt; $49.99</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock(coffee-pourover-dripper) -&gt; in stock; get_price(coffee-pourover-dripper) -&gt; $18.5</div></td><td class="mark">changed</td></tr><tr class=""><td class="num">7</td><td class="inp">Compaction / summarization</td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: recommend in-stock items only; keep recommendations under $60.</div></td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: recommend in-stock items only; keep recommendations under $60.</div></td><td class="mark"></td></tr>
+      </table>
+      <div class="replies">
+        <div class="reply v1"><span class="tag">V1 reply</span>For an electric coffee maker under $60, I&#x27;d recommend the Electric Drip Coffee Maker. I checked and it&#x27;s in stock at $49.99 — a 12-cup programmable machine with a keep-warm plate, so it fits both your budget and your new kitchen.</div>
+        <div class="reply v2"><span class="tag">V2 reply</span>For a drip coffee maker, I&#x27;d recommend the Pour-Over Coffee Dripper — it&#x27;s in stock at just $18.50 and makes great single-cup drip coffee. A simple, budget-friendly pick to get your new kitchen brewing.</div>
+      </div>
+      <ul class="failed"><li><code>C4_recommendation_matches_need</code> <b>FAIL</b> on turn1 (input 3): off-need: [&#x27;coffee-pourover-dripper&#x27;]</li></ul>
+    </section>
+    <section class="break">
+      <h2>break3 — Compaction drops a constraint</h2>
+      <p class="meta">break turn: <b>turn4</b> &middot; broken input(s):
+         <b>input 4, input 7</b></p>
+      <table class="audit">
+        <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
+            <th>V2 — break3 (broken)</th><th></th></tr>
+        <tr class=""><td class="num">1</td><td class="inp">System instructions</td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td class="mark"></td></tr><tr class=""><td class="num">2</td><td class="inp">Tools the model can call</td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td class="mark"></td></tr><tr class=""><td class="num">3</td><td class="inp">Retrieved knowledge</td><td><span class="badge ok">OK</span><div class="detail">Nonstick Cookware Set[in](s=10)</div></td><td><span class="badge ok">OK</span><div class="detail">Nonstick Cookware Set[in](s=10)</div></td><td class="mark"></td></tr><tr class="broken-row"><td class="num">4</td><td class="inp">Memory of prior turns</td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock). | Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge broken">BROKEN</span><div class="detail">User is furnishing a new apartment kitchen. | Recommended Electric Drip Coffee Maker ($49.99). | Recommended Insulated Coffee Carafe ($24.99).</div><div class="reason">BREAK: compaction lost the standing &#x27;under $60&#x27; commitment; constraint absent from carried memory and summary</div></td><td class="mark">◀ broke here</td></tr><tr class=""><td class="num">5</td><td class="inp">User query</td><td><span class="badge ok">OK</span><div class="detail">And some pots and pans for cooking?</div></td><td><span class="badge ok">OK</span><div class="detail">And some pots and pans for cooking?</div></td><td class="mark"></td></tr><tr class=""><td class="num">6</td><td class="inp">Outputs of previous tool calls</td><td><span class="badge ok">OK</span><div class="detail">check_stock(cookware-nonstick-set) -&gt; in stock; get_price(cookware-nonstick-set) -&gt; $129.99</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock(cookware-nonstick-set) -&gt; in stock; get_price(cookware-nonstick-set) -&gt; $129.99</div></td><td class="mark"></td></tr><tr class="broken-row"><td class="num">7</td><td class="inp">Compaction / summarization</td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: in-stock only, under $60. Progress through turn3: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge broken">BROKEN</span><div class="detail">Summary so far: recommend in-stock items only. Recommended Electric Drip Coffee Maker ($49.99). Recommended Insulated Coffee Carafe ($24.99).</div><div class="reason">BREAK: compaction lost the standing &#x27;under $60&#x27; commitment; constraint absent from carried memory and summary</div></td><td class="mark">◀ broke here</td></tr>
+      </table>
+      <div class="replies">
+        <div class="reply v1"><span class="tag">V1 reply</span>For pots and pans the in-stock option is the Nonstick Cookware Set, but at $129.99 it&#x27;s well over the under-$60 budget we agreed on, so I won&#x27;t push it as-is. I don&#x27;t have a cookware set under $60 in stock. Want me to relax the budget for this one, or see individual pans?</div>
+        <div class="reply v2"><span class="tag">V2 reply</span>For pots and pans, I&#x27;d recommend the Nonstick Cookware Set — it&#x27;s in stock at $129.99, a 10-piece set with glass lids that covers everything you&#x27;ll need. A solid all-in-one choice for the new kitchen.</div>
+      </div>
+      <ul class="failed"><li><code>C5_honored_budget_constraint</code> <b>FAIL</b> on turn4 (input 4/7): over $60: [&#x27;cookware-nonstick-set&#x27;]</li></ul>
+    </section>
+    <section class="break">
+      <h2>break4 — Stale prior tool output</h2>
+      <p class="meta">break turn: <b>turn3</b> &middot; broken input(s):
+         <b>input 6</b></p>
+      <table class="audit">
+        <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
+            <th>V2 — break4 (broken)</th><th></th></tr>
+        <tr class=""><td class="num">1</td><td class="inp">System instructions</td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td><span class="badge ok">OK</span><div class="detail">Never recommend an out-of-stock item. If stock is unknown, say so.</div></td><td class="mark"></td></tr><tr class=""><td class="num">2</td><td class="inp">Tools the model can call</td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td><span class="badge ok">OK</span><div class="detail">check_stock, get_price</div></td><td class="mark"></td></tr><tr class=""><td class="num">3</td><td class="inp">Retrieved knowledge</td><td><span class="badge ok">OK</span><div class="detail">Stovetop Espresso Maker[OUT](s=9); Electric Drip Coffee Maker[in](s=3); French Press Coffee Maker[in](s=3)</div></td><td><span class="badge ok">OK</span><div class="detail">Stovetop Espresso Maker[OUT](s=9); Electric Drip Coffee Maker[in](s=3); French Press Coffee Maker[in](s=3)</div></td><td class="mark"></td></tr><tr class="changed-row"><td class="num">4</td><td class="inp">Memory of prior turns</td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99, in stock). | Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge ok">OK</span><div class="detail">User is furnishing a new apartment kitchen. | User prefers items under $60. | Recommended Electric Drip Coffee Maker ($49.99). | Recommended Insulated Coffee Carafe ($24.99).</div></td><td class="mark">changed</td></tr><tr class=""><td class="num">5</td><td class="inp">User query</td><td><span class="badge ok">OK</span><div class="detail">Could you suggest an espresso maker?</div></td><td><span class="badge ok">OK</span><div class="detail">Could you suggest an espresso maker?</div></td><td class="mark"></td></tr><tr class="broken-row"><td class="num">6</td><td class="inp">Outputs of previous tool calls</td><td><span class="badge ok">OK</span><div class="detail">check_stock(coffee-espresso-stovetop) -&gt; out of stock</div></td><td><span class="badge broken">BROKEN</span><div class="detail">check_stock(coffee-espresso-stovetop) -&gt; in stock; get_price(coffee-espresso-stovetop) -&gt; $27.95</div><div class="reason">BREAK: check_stock returned a stale &#x27;in stock&#x27; for an item that is actually out of stock; poisoned tool output trusted</div></td><td class="mark">◀ broke here</td></tr><tr class="changed-row"><td class="num">7</td><td class="inp">Compaction / summarization</td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99, in stock).; Recommended Insulated Coffee Carafe ($24.99, in stock).</div></td><td><span class="badge ok">OK</span><div class="detail">Standing constraints: in-stock only, under $60. Progress through turn2: Recommended Electric Drip Coffee Maker ($49.99).; Recommended Insulated Coffee Carafe ($24.99).</div></td><td class="mark">changed</td></tr>
+      </table>
+      <div class="replies">
+        <div class="reply v1"><span class="tag">V1 reply</span>I looked into espresso makers — the Stovetop Espresso Maker is the match, but I checked and it&#x27;s currently out of stock, so I won&#x27;t recommend it. I don&#x27;t have another espresso maker in stock right now. Want me to flag it for restock?</div>
+        <div class="reply v2"><span class="tag">V2 reply</span>Good news — I checked and the Stovetop Espresso Maker is in stock at $27.95. It&#x27;s a 6-cup aluminum moka pot for rich espresso-style coffee, comfortably under your budget, so I&#x27;d recommend it.</div>
+      </div>
+      <ul class="failed"><li><code>C1_no_oos_recommended</code> <b>FAIL</b> on turn3 (input 1): OOS recommended: [&#x27;coffee-espresso-stovetop&#x27;]</li></ul>
+    </section>
+
+    <section class="headline">
+      <h2>Headline — break #1 vs break #4: same symptom, opposite cause</h2>
+      <table class="contrast">
+        <tr><th></th><th>break #1</th><th>break #4</th></tr>
+        <tr><td>symptom</td><td>recommends OOS item → C1 fails</td>
+            <td>recommends OOS item → C1 fails</td></tr>
+        <tr><td>cause</td><td><b>input 1</b> — rule ignored (row 1 BROKEN)</td>
+            <td><b>input 6</b> — stale tool trusted (row 6 BROKEN)</td></tr>
+        <tr><td>the tool said</td><td>"out of stock" (truthful)</td>
+            <td>"in stock" (stale / lying)</td></tr>
+        <tr><td>the rule was</td><td>present and ignored</td>
+            <td>honored on bad data</td></tr>
+        <tr><td>fix</td><td>make the model obey the rule</td>
+            <td>fix the stale tool</td></tr>
+      </table>
+      <p class="punch">The symptom does not tell you where it failed.
+         The Context Audit row that flipped does.</p>
+    </section>
+
+<footer>Generated deterministically from runs/*.json by the locked scorer.
+  Re-running the harness reproduces this byte-for-byte.</footer>
+</body></html>
