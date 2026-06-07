@@ -72,8 +72,8 @@ Baseline scores high; each break drops the score in a measured, traceable way.
 .
 ├── data/    # catalog.json (25 items) + scenarios.json (the 4-turn conversation)
 ├── src/     # prepare.py, context_bundle.py, harness.py, run_*.py, report.py
-├── runs/    # trajectory logs (baseline + 4 breaks) + report.md dashboard
-├── eval/    # checklist.json — the LOCKED eval checklist (validator-side)
+├── runs/    # trajectory logs (baseline + 4 breaks) + report.md / dashboard.html
+├── eval/    # checklist.json (LOCKED) + failure_modes.json (Part 2 lens)
 ├── NARRATION.md   # first-person write-up: what was built and what it proves
 └── README.md
 ```
@@ -83,8 +83,11 @@ Baseline scores high; each break drops the score in a measured, traceable way.
 - `src/harness.py` — shared scenario loading, honest tool execution, bundle assembly.
 - `src/run_baseline.py`, `src/run_break{1..4}.py` — Claude in-session writes the
   assistant turns; each break compromises exactly one input.
-- `src/report.py` — deterministic scorer + trace dashboard. Never generates.
+- `src/report.py` — deterministic scorer + trace dashboard (+ Part 2 failure-mode
+  lens). Never generates.
 - `eval/checklist.json` — six binary checks + per-turn ground truth, **frozen**.
+- `eval/failure_modes.json` — Part 2 taxonomy, per-break tags, case studies (read
+  only by `report.py`; the generators never see it).
 
 ## Run it
 
@@ -121,7 +124,44 @@ symptom doesn't tell you where it failed; the Context Audit does. See
 [`NARRATION.md`](NARRATION.md) for the full write-up and [`runs/report.md`](runs/report.md)
 for the generated dashboard.
 
+## Part 2 — the failure-mode lens
+
+Part 1 answers *where* a context broke (which of the seven inputs). Part 2 adds a
+second, cross-cutting axis — *how* it failed — using Drew Breunig's four failure
+modes: **Poisoning**, **Distraction**, **Confusion**, **Clash**
+(`eval/failure_modes.json`). The dashboard gains a failure-mode column:
+
+| run | broken input (cause) | failed check | failure mode (Breunig) |
+|---|---|---|---|
+| break1 | input 1 | C1 | Clash (loose) |
+| break2 | input 3 | C4 | Poisoning (loose) |
+| break3 | input 4, input 7 | C5 | **none (gap)** |
+| break4 | input 6 | C1 | Poisoning |
+
+Tagging is reasoned honestly, not forced 1:1 — loose fits are flagged, and
+**break #3 maps to none of the four**: it's an *omission* (compaction dropped a
+constraint), and every Breunig mode is about the *presence* of bad content, not
+the *absence* of good content. That gap is surfaced, not hidden.
+
+**Two axes, both necessary.** Input-axis = where; mode-axis = how. They're
+orthogonal: Poisoning appears at input 3 *and* input 6; break #1 and #4 share the
+C1 symptom but split across modes (Clash vs Poisoning); break #3 is invisible to
+the mode axis yet loud on the input axis.
+
+**Two reframes.** (1) "The agent ignored the prompt" is a category error — ask
+*which mode zeroed the instruction.* (2) The fix is not better prompting — it's a
+guardrail, a retrieval fix, compaction protection, or a tool-freshness fix,
+depending on the mode.
+
+**Worked examples** round out the two modes the synthetic breaks never produce:
+**Replit (Jul 2025) = Poisoning + Clash**; **PocketOS (Apr 2026) = Confusion +
+Distraction**. Synthetic breaks cover Clash + Poisoning; the case studies cover
+Distraction + Confusion — together, all four.
+
 ## Status
 
-Complete — baseline + four breaks build, run, and score; dashboard and narration
-emitted. Builder/validator separation holds: the generator never scores itself.
+Complete — Part 1 (seven-input audit + four traceable breaks) and Part 2
+(failure-mode lens) build, run, and score; dashboard and narration emitted.
+Builder/validator separation holds: the generator never scores itself, and the
+Part 2 taxonomy is read only by the reporter. Re-running reproduces with zero
+diff.

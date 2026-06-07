@@ -1,0 +1,76 @@
+{
+  "locked": true,
+  "note": "VALIDATOR-SIDE reference layer (Part 2). The generators (run_*.py) never read this file; only report.py does, to render the failure-mode lens. Tagging is interpretive, reasoned honestly, NOT forced 1:1.",
+  "source": "Drew Breunig — \"How Long Contexts Fail\" / \"How to Fix Your Context\" (2025)",
+  "taxonomy": {
+    "poisoning": {
+      "name": "Poisoning",
+      "definition": "A hallucination or error makes it into the context and is repeatedly referenced."
+    },
+    "distraction": {
+      "name": "Distraction",
+      "definition": "The context grows so long the model over-focuses on it, neglecting what it learned in training."
+    },
+    "confusion": {
+      "name": "Confusion",
+      "definition": "Superfluous information in the context is used by the model to generate a low-quality response."
+    },
+    "clash": {
+      "name": "Clash",
+      "definition": "New information or tools accrue in the context that conflict with other information in the prompt."
+    }
+  },
+  "break_tags": {
+    "break1": {
+      "modes": ["clash"],
+      "fit": "loose",
+      "primary_input": 1,
+      "failed_check": "C1",
+      "rationale": "Hypothesis was Clash; validated but LOOSE. There is a competing-pressure reading: the user's explicit request + the top retrieval candidate pull toward 'recommend it', which conflicts with the rule forbidding out-of-stock recommendations, and that clash neutralized the instruction. Honest caveat: the context content is otherwise clean and self-consistent (no error, not long, nothing superfluous), and the same tension exists in the baseline where it resolves correctly. So this is really an instruction-ADHERENCE failure wearing a thin Clash costume — it sits at the edge of the content taxonomy, not squarely inside it.",
+      "flag": "loose fit — borderline adherence failure"
+    },
+    "break2": {
+      "modes": ["poisoning"],
+      "fit": "loose",
+      "primary_input": 3,
+      "failed_check": "C4",
+      "rationale": "Hypothesis was Poisoning (loose); validated as loose. The wrong retrieved chunk (a plausible near-match) is an ERROR that entered the context and drove the output — poisoning-like. But Breunig's poisoning stresses 'repeatedly referenced', and here it is referenced once, in a single turn. break2 also has an OMISSION aspect (the correct chunk was missing) which is the same taxonomy gap as break3. So: Poisoning (loose) for the bad inclusion, plus an omission gap.",
+      "flag": "loose fit — single reference, plus an omission aspect"
+    },
+    "break3": {
+      "modes": [],
+      "fit": "none",
+      "primary_input": "4/7",
+      "failed_check": "C5",
+      "rationale": "Hypothesis was 'none of the four'; CONFIRMED. The failure is that needed information was REMOVED from context (the 'under $60' commitment dropped during compaction). All four modes describe the PRESENCE of bad content — poisoning adds an error, distraction adds length, confusion adds superfluity, clash adds conflict. break3 is the ABSENCE of good content. The taxonomy has no mode for omission / lossy-summarization dropping a constraint. This is a genuine gap in the four-mode taxonomy.",
+      "flag": "GAP — omission / missing-info; not covered by the four content modes"
+    },
+    "break4": {
+      "modes": ["poisoning"],
+      "fit": "strong",
+      "primary_input": 6,
+      "failed_check": "C1",
+      "rationale": "Hypothesis was Poisoning; validated, STRONG fit. A stale/erroneous tool result ('in stock' for an out-of-stock item) entered the context via input 6 and was referenced to produce the recommendation — textbook poisoning (an error in context driving the output). The model behaved correctly on bad data; the error is in the context, not the reasoning.",
+      "flag": null
+    }
+  },
+  "case_studies": {
+    "replit_2025_07": {
+      "name": "Replit coding agent",
+      "date": "2025-07",
+      "modes": ["poisoning", "clash"],
+      "summary": "An autonomous coding agent took a destructive action against an explicit instruction. A false belief about the system state persisted in context and was acted on (Poisoning), while accrued signals conflicted with the standing prohibition (Clash). Summarized from public reports; the mode mapping is the point, not the incident detail."
+    },
+    "pocketos_2026_04": {
+      "name": "PocketOS personal-agent",
+      "date": "2026-04",
+      "modes": ["confusion", "distraction"],
+      "summary": "A personal-OS assistant degraded as its working context filled with superfluous accumulated state (Confusion) and grew long enough that the model over-focused on the transcript over its trained priors (Distraction). Note: this is after this model's knowledge cutoff; included as a worked example per the build brief, framing only."
+    }
+  },
+  "coverage": {
+    "synthetic_breaks_cover": ["clash", "poisoning"],
+    "case_studies_cover": ["distraction", "confusion"],
+    "note": "The synthetic breaks naturally produce Clash (break1, loosely) and Poisoning (break2 loosely, break4 strongly); they never produce Distraction or Confusion (those need long / superfluous aggregate context, which a short 4-turn scenario does not create). break3 lands outside the taxonomy entirely (omission gap). The two case studies round out Distraction + Confusion. Together: all four modes are illustrated."
+  }
+}

@@ -118,3 +118,98 @@ retrieval, four turns, six checks. The drops are one check each (about 4% of the
 trajectory) because each scenario violates exactly one thing — that precision is
 the point, not the magnitude. The builder/validator separation is real: the
 generation step never computes its own score.
+
+---
+
+# Part 2 — the failure-mode layer
+
+Part 1 answered *where* a context broke (which of the seven inputs). Part 2 adds
+a second, cross-cutting question: *how* did it fail? For that I borrow Drew
+Breunig's four failure modes and lay them over the same four breaks.
+
+## The four modes (Breunig)
+
+- **Poisoning** — a hallucination or error makes it into the context and is
+  repeatedly referenced.
+- **Distraction** — the context grows so long the model over-focuses on it,
+  neglecting what it learned in training.
+- **Confusion** — superfluous information in the context is used to generate a
+  low-quality response.
+- **Clash** — new information or tools accrue in the context that conflict with
+  other information in the prompt.
+
+## Tagging the four breaks — honestly, not 1:1
+
+I refused to force a clean mapping. Here's what actually fits:
+
+- **break #1 → Clash (loose).** There's a competing-pressure reading — the user's
+  request and the top retrieval candidate pull toward "recommend it," which
+  conflicts with the rule against out-of-stock items. But the context content is
+  clean and self-consistent (no error, not long, nothing superfluous), and the
+  *same* tension exists in the baseline, where it resolves fine. So this is
+  really an instruction-**adherence** failure wearing a thin Clash costume. I
+  flag it as loose.
+- **break #2 → Poisoning (loose).** The wrong retrieved chunk is an error that
+  entered context and drove the output — poisoning-like. But Breunig's poisoning
+  stresses *repeatedly referenced*, and here it's used once. It also has an
+  omission aspect (the right chunk was missing). Flagged loose.
+- **break #3 → none of the four.** This is the interesting one. The failure is
+  that needed information was **removed** (the "under $60" commitment dropped in
+  compaction). All four modes describe the *presence* of bad content; break #3 is
+  the *absence* of good content. The taxonomy has no mode for omission. **That's
+  a real gap in the four-mode taxonomy, surfaced honestly rather than papered
+  over.**
+- **break #4 → Poisoning (strong).** A stale tool result ("in stock" for an
+  out-of-stock item) entered context and was referenced to produce the answer.
+  Textbook poisoning: the error is in the context, not the reasoning.
+
+## Two reframes this forces
+
+**Reframe 1 — "the agent ignored the prompt" is a category error.** When break #1
+recommends an out-of-stock item with the rule sitting right there, the lazy
+description is "the model ignored its instructions." That tells you nothing.
+The useful question is: *which failure mode zeroed the instruction?* Name the
+mechanism (here: a clash of competing pressures, loosely) instead of blaming the
+model's attention.
+
+**Reframe 2 — the fix is not better prompting.** If a mode neutralized the
+instruction — or an omission dropped it — rewording the system prompt won't help.
+break #3 won't be fixed by a sterner rule; it's fixed by protecting the
+constraint from lossy compaction. break #4 isn't fixed by prompting; it's fixed
+by repairing the stale tool. Each mode points at a different, non-prompt fix.
+
+## The finding: two axes, both necessary
+
+The seven inputs are one axis (**where**); the failure modes are another
+(**how**), and they're orthogonal:
+
+- **Same mode, different input:** Poisoning shows up at input 3 (break #2) *and*
+  input 6 (break #4).
+- **Same symptom, different mode:** break #1 and break #4 both fail check C1, but
+  one is Clash and the other Poisoning.
+- **Visible on one axis, invisible on the other:** break #3 is a blank on the
+  mode axis (omission gap) but screams on the input axis (rows 4 and 7).
+  Conversely, Distraction and Confusion are aggregate-context failures that a
+  single-input audit would struggle to localize.
+
+Neither axis alone is sufficient. The input audit tells you which lever to grab;
+the mode lens tells you what kind of damage you're repairing.
+
+## Rounding out the modes with real cases
+
+The synthetic breaks only ever produce **Clash** and **Poisoning** — a short,
+four-turn scenario never grows long or cluttered enough to create Distraction or
+Confusion. Two real cases supply the rest:
+
+- **Replit (Jul 2025) → Poisoning + Clash** — an autonomous coding agent took a
+  destructive action against an explicit instruction; a false belief persisted
+  in context (Poisoning) while accrued signals conflicted with the prohibition
+  (Clash).
+- **PocketOS (Apr 2026) → Confusion + Distraction** — a personal-agent degraded
+  as its context filled with superfluous state (Confusion) and grew long enough
+  to over-focus on the transcript (Distraction). *(After this model's knowledge
+  cutoff; included per the brief as framing only.)*
+
+Together — two synthetic modes, two case-study modes — all four are illustrated,
+with break #3 standing outside as the honest reminder that the taxonomy isn't
+complete.

@@ -23,11 +23,36 @@ from prepare import load_catalog
 ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = ROOT / "runs"
 CHECKLIST_PATH = ROOT / "eval" / "checklist.json"
+FAILURE_MODES_PATH = ROOT / "eval" / "failure_modes.json"
 
 
 def load_checklist() -> dict:
     with open(CHECKLIST_PATH, "r", encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def load_failure_modes() -> dict:
+    """Part 2 — the validator-side failure-mode lens (Drew Breunig taxonomy)."""
+    with open(FAILURE_MODES_PATH, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def mode_label(fm: dict, run_id: str) -> str:
+    """One-line failure-mode label for a run, e.g. 'Clash (loose)' / 'none (gap)'."""
+    tag = fm["break_tags"].get(run_id)
+    if tag is None:
+        return "—"
+    if not tag["modes"]:
+        return "none (gap)"
+    names = ", ".join(fm["taxonomy"][m]["name"] for m in tag["modes"])
+    fit = tag.get("fit", "")
+    return names + (f" ({fit})" if fit and fit != "strong" else "")
+
+
+def _wrap(text: str, width: int, indent: str = "") -> str:
+    import textwrap
+    return textwrap.fill(text, width=width, initial_indent=indent,
+                         subsequent_indent=indent)
 
 
 def load_trajectory(run_id: str) -> dict:
@@ -204,16 +229,17 @@ def _broken_lines(run_id: str) -> list[dict]:
 def dashboard(write_md: bool = True) -> None:
     results = {rid: score_run(rid, verbose=False) for rid in DASHBOARD_RUNS}
     base = results["baseline"]["score"]
+    fm = load_failure_modes()
 
     lines = []
     P = lines.append
-    P("=" * 92)
+    P("=" * 100)
     P("CONTEXT AUDIT HARNESS — TRACE DASHBOARD")
     P("context is the variable, not the model  |  presence != sufficiency")
-    P("=" * 92)
-    P(f"{'run':<11}{'score':<14}{'drop':<8}{'broken input (cause)':<24}"
-      "failed check (symptom)")
-    P("-" * 92)
+    P("=" * 100)
+    P(f"{'run':<11}{'score':<13}{'drop':<7}{'broken input (cause)':<23}"
+      f"{'failed check (sympt.)':<23}failure mode (Breunig)")
+    P("-" * 100)
     for rid in DASHBOARD_RUNS:
         r = results[rid]
         drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
@@ -221,11 +247,11 @@ def dashboard(write_md: bool = True) -> None:
                  if r["broken_inputs"] else "none")
         symptom = ", ".join(sorted({c.split("_")[0]
                                     for _, c, _, _ in r["failed"]})) or "none"
-        P(f"{rid:<11}{r['passed']}/{r['total']} = {r['score']:<6.0%}"
-          f"{drop_s:<8}{cause:<24}{symptom}")
-    P("=" * 92)
+        P(f"{rid:<11}{r['passed']}/{r['total']} = {r['score']:<5.0%}"
+          f"{drop_s:<7}{cause:<23}{symptom:<23}{mode_label(fm, rid)}")
+    P("=" * 100)
     P("THE ONE LINE THAT FLIPPED  (the failure is visible in a single audit row)")
-    P("=" * 92)
+    P("=" * 100)
     for rid in DASHBOARD_RUNS[1:]:
         r = results[rid]
         P(f"\n[{rid}] {BREAK_TITLES[rid]}")
@@ -235,9 +261,9 @@ def dashboard(write_md: bool = True) -> None:
                 P(f"         cause: {row['reason']}")
         for tid, cid, inp, note in r["failed"]:
             P(f"  {tid}  {cid} FAIL (input {inp}): {note}")
-    P("=" * 92)
+    P("=" * 100)
     P("HEADLINE — break #1 vs break #4: same symptom, opposite cause, opposite fix")
-    P("=" * 92)
+    P("=" * 100)
     P("  symptom (both):  recommended an out-of-stock item  ->  C1 fails")
     P("  break #1 cause:  input 1 — model IGNORED a truthful rule (row 1 BROKEN)")
     P("  break #4 cause:  input 6 — a LYING tool output was trusted (row 6 BROKEN)")
@@ -245,17 +271,53 @@ def dashboard(write_md: bool = True) -> None:
     P("  break #4 fix:    fix the stale tool; the model behaved correctly on bad data")
     P("  takeaway:        the symptom (C1) does NOT tell you where it failed.")
     P("                   the Context Audit row that flipped does.")
-    P("=" * 92)
+
+    # ---- Part 2: the failure-mode lens ------------------------------------
+    P("=" * 100)
+    P("PART 2 — FAILURE-MODE LENS (Drew Breunig taxonomy)")
+    P("=" * 100)
+    for key in ["poisoning", "distraction", "confusion", "clash"]:
+        m = fm["taxonomy"][key]
+        P(f"  {m['name']:<12} {m['definition']}")
+    P("-" * 100)
+    P("  per-break tagging (reasoned honestly, not forced 1:1):")
+    for rid in DASHBOARD_RUNS[1:]:
+        tag = fm["break_tags"][rid]
+        flag = f"   [{tag['flag']}]" if tag.get("flag") else ""
+        P(f"\n  [{rid}] {mode_label(fm, rid)}{flag}")
+        P(_wrap(tag["rationale"], 94, "    "))
+    P("-" * 100)
+    P("  input-axis vs mode-axis: the seven-input audit says WHERE it broke;")
+    P("  the taxonomy says HOW the context failed. They are orthogonal — Poisoning")
+    P("  appears at input 3 (break2) AND input 6 (break4); break1 & break4 share the")
+    P("  C1 symptom but split across modes (Clash vs Poisoning). break3 is invisible")
+    P("  to the mode axis (omission gap) yet loud on the input axis (rows 4 & 7).")
+
+    # ---- Part 2: worked examples -----------------------------------------
+    P("=" * 100)
+    P("WORKED EXAMPLES (real cases round out the modes the synthetic breaks miss)")
+    P("=" * 100)
+    for cs in fm["case_studies"].values():
+        modes = ", ".join(fm["taxonomy"][m]["name"] for m in cs["modes"])
+        P(f"  {cs['name']} ({cs['date']}) — {modes}")
+        P(_wrap(cs["summary"], 94, "    "))
+    cov = fm["coverage"]
+    P("-" * 100)
+    P(f"  synthetic breaks cover: {', '.join(c.capitalize() for c in cov['synthetic_breaks_cover'])}"
+      f"   |   case studies cover: {', '.join(c.capitalize() for c in cov['case_studies_cover'])}")
+    P(_wrap(cov["note"], 96, "  "))
+    P("=" * 100)
 
     text = "\n".join(lines)
     print(text)
     if write_md:
-        _write_markdown(results, base)
+        _write_markdown(results, base, fm)
 
 
-def _md_table(results, base) -> list[str]:
-    rows = ["| run | score | drop | broken input (cause) | failed check (symptom) |",
-            "|---|---|---|---|---|"]
+def _md_table(results, base, fm) -> list[str]:
+    rows = ["| run | score | drop | broken input (cause) | failed check (symptom) "
+            "| failure mode (Breunig) |",
+            "|---|---|---|---|---|---|"]
     for rid in DASHBOARD_RUNS:
         r = results[rid]
         drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
@@ -264,11 +326,11 @@ def _md_table(results, base) -> list[str]:
         symptom = ", ".join(sorted({c.split("_")[0]
                                     for _, c, _, _ in r["failed"]})) or "none"
         rows.append(f"| {rid} | {r['passed']}/{r['total']} = {r['score']:.0%} | "
-                    f"{drop_s} | {cause} | {symptom} |")
+                    f"{drop_s} | {cause} | {symptom} | {mode_label(fm, rid)} |")
     return rows
 
 
-def _write_markdown(results, base) -> None:
+def _write_markdown(results, base, fm) -> None:
     md = []
     md.append("# Context Audit Harness — Trace Dashboard\n")
     md.append("> *context is the variable, not the model* — and "
@@ -277,7 +339,7 @@ def _write_markdown(results, base) -> None:
               "seven context inputs; the score drops and the Context Audit shows "
               "which row flipped.\n")
     md.append("## Scoreboard\n")
-    md += _md_table(results, base)
+    md += _md_table(results, base, fm)
     md.append("\n## The one line that flipped\n")
     md.append("For each break, the single audit row that went BROKEN (the cause) "
               "and the check it tripped (the symptom):\n")
@@ -302,6 +364,44 @@ def _write_markdown(results, base) -> None:
     md.append("| fix | make the model obey the rule | fix the stale tool |")
     md.append("\n**The symptom (C1) does not tell you where it failed. The Context "
               "Audit row that flipped does.**\n")
+
+    # ---- Part 2: failure-mode lens ---------------------------------------
+    md.append("## Part 2 — Failure-mode lens (Drew Breunig taxonomy)\n")
+    md.append(f"*Source: {fm['source']}.* Tagging is interpretive and reasoned "
+              "honestly — not forced 1:1.\n")
+    md.append("| mode | definition |")
+    md.append("|---|---|")
+    for key in ["poisoning", "distraction", "confusion", "clash"]:
+        m = fm["taxonomy"][key]
+        md.append(f"| **{m['name']}** | {m['definition']} |")
+    md.append("\n### Per-break tagging\n")
+    for rid in DASHBOARD_RUNS[1:]:
+        tag = fm["break_tags"][rid]
+        flag = f" — _{tag['flag']}_" if tag.get("flag") else ""
+        md.append(f"- **{rid} → {mode_label(fm, rid)}**{flag}  \n  {tag['rationale']}")
+    md.append("\n### Input-axis vs mode-axis\n")
+    md.append("The seven-input audit says **where** it broke; the taxonomy says "
+              "**how** the context failed. They are orthogonal: Poisoning shows up at "
+              "input 3 (break2) *and* input 6 (break4); break1 and break4 share the C1 "
+              "symptom but split across modes (Clash vs Poisoning); break3 is invisible "
+              "to the mode axis (omission gap) yet loud on the input axis (rows 4 & 7).\n")
+    md.append("### Worked examples\n")
+    md.append("Real cases supply the two modes the synthetic breaks never produce:\n")
+    md.append("| case | date | failure mode(s) |")
+    md.append("|---|---|---|")
+    for cs in fm["case_studies"].values():
+        modes = ", ".join(fm["taxonomy"][m]["name"] for m in cs["modes"])
+        md.append(f"| {cs['name']} | {cs['date']} | {modes} |")
+    md.append("")
+    for cs in fm["case_studies"].values():
+        md.append(f"- **{cs['name']}** — {cs['summary']}")
+    cov = fm["coverage"]
+    md.append(f"\n> **Coverage.** Synthetic breaks cover "
+              f"{', '.join(c.capitalize() for c in cov['synthetic_breaks_cover'])}; "
+              f"case studies cover "
+              f"{', '.join(c.capitalize() for c in cov['case_studies_cover'])}. "
+              f"{cov['note']}\n")
+
     out_path = RUNS_DIR / "report.md"
     with open(out_path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(md) + "\n")
