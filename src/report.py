@@ -17,6 +17,7 @@ import json
 import sys
 from pathlib import Path
 
+import reliability
 from context_bundle import ContextBundle
 from prepare import load_catalog
 
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = ROOT / "runs"
 CHECKLIST_PATH = ROOT / "eval" / "checklist.json"
 FAILURE_MODES_PATH = ROOT / "eval" / "failure_modes.json"
+DEFENSES_PATH = ROOT / "eval" / "defenses.json"
 
 
 def load_checklist() -> dict:
@@ -35,6 +37,19 @@ def load_failure_modes() -> dict:
     """Part 2 — the validator-side failure-mode lens (Drew Breunig taxonomy)."""
     with open(FAILURE_MODES_PATH, "r", encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def load_defenses() -> dict:
+    """Part 3 — defenses per mode + recovery mapping + no-break incidents."""
+    with open(DEFENSES_PATH, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def harness_step_count() -> int:
+    """Deterministic step count of the baseline trajectory: each model action
+    (a tool call or a generated turn) is one step."""
+    traj = load_trajectory("baseline")
+    return sum(len(t["tool_calls"]) for t in traj["turns"]) + len(traj["turns"])
 
 
 def mode_label(fm: dict, run_id: str) -> str:
@@ -306,12 +321,85 @@ def dashboard(write_md: bool = True) -> None:
     P(f"  synthetic breaks cover: {', '.join(c.capitalize() for c in cov['synthetic_breaks_cover'])}"
       f"   |   case studies cover: {', '.join(c.capitalize() for c in cov['case_studies_cover'])}")
     P(_wrap(cov["note"], 96, "  "))
-    P("=" * 100)
+
+    # ---- Part 3: defenses, recovery, reliability ceiling ------------------
+    lines.extend(_part3_lines(results, base))
 
     text = "\n".join(lines)
     print(text)
     if write_md:
         _write_markdown(results, base, fm)
+
+
+def _part3_lines(results, base) -> list[str]:
+    df = load_defenses()
+    L = []
+    A = L.append
+    A("=" * 100)
+    A("PART 3 — DEFENSES & RECOVERY (one defense per mode; apply it, re-run)")
+    A("=" * 100)
+    A(f"  {'break':<8}{'mode':<16}{'defense':<26}{'break':<8}{'recover':<9}"
+      f"{'delta':<8}rows flipped -> OK")
+    A("-" * 100)
+    rec_results = {}
+    for bid in sorted(df["recoveries"]):
+        rec = df["recoveries"][bid]
+        rr = score_run(rec["run"], verbose=False)
+        rec_results[bid] = rr
+        bscore = results[bid]["score"]
+        delta = rr["score"] - bscore
+        rows = ", ".join(f"row {n}" for n in rec["flips_rows"])
+        sim = "  (SIMULATED)" if rec.get("simulated") else ""
+        A(f"  {bid:<8}{rec['mode']:<16}{rec['defense']:<26}"
+          f"{bscore:<8.0%}{rr['score']:<9.0%}+{delta:<7.0%}{rows}{sim}")
+    A("-" * 100)
+    A("  applied (how each defense was realized in the harness):")
+    for bid in sorted(df["recoveries"]):
+        rec = df["recoveries"][bid]
+        A(f"    [{bid} -> {rec['run']}] {rec['applied']}")
+    # the sharp break3 finding
+    b3 = df["recoveries"]["break3"]
+    A("")
+    A("  SHARP FINDING (break3):")
+    A(_wrap(b3["finding"], 94, "    "))
+
+    # modes with no break here -> map defense to real incidents
+    A("=" * 100)
+    A("DEFENSES FOR MODES WITH NO BREAK HERE (no faked recovery — mapped to real cases)")
+    A("=" * 100)
+    nb = df["no_break_modes"]
+    A("  " + _wrap(nb["note"], 96, "  ").lstrip())
+    A("-" * 100)
+    for key in ["distraction", "confusion"]:
+        m = nb[key]
+        A(f"  {key.capitalize()}  ->  incident: {m['incident']}")
+        A(f"      defense: {m['defense']}")
+        A(_wrap(m["incident_note"], 92, "      "))
+
+    # reliability ceiling
+    steps = harness_step_count()
+    A("")
+    A(reliability.render(harness_steps=steps, width=100))
+    p95 = reliability.success(0.95, steps)
+    A(f"  this harness runs ~{steps} steps; even at p=0.95 that is "
+      f"{p95:.0%} end-to-end. defenses raise p, never the ceiling's shape.")
+
+    # four-defense audit one-pager (the harness as a feature)
+    A("=" * 100)
+    A("FOUR-DEFENSE AUDIT — the harness as a feature")
+    A("=" * 100)
+    A("  Poisoning  / guardrails    : IN SCOPE — verify-before-act + retrieval")
+    A("                               correction (recover2, recover4).")
+    A("  Clash      / isolation     : SIMULATED ONLY — single-thread rule-gate")
+    A("                               approximation (recover1); no real orchestrator.")
+    A("  Distraction/ compaction    : IN SCOPE as the CURE for break3 (scoped")
+    A("                               compaction); no Distraction break to recover.")
+    A("  Confusion  / tool loadout  : STRUCTURALLY SATISFIED — only 2 narrow tools")
+    A("                               (check_stock, get_price); no Confusion break.")
+    A(f"  reliability ceiling        : ~{steps} steps -> {p95:.0%} at p=0.95. The")
+    A("                               defenses raise p; they cannot cross the ceiling.")
+    A("=" * 100)
+    return L
 
 
 def _md_table(results, base, fm) -> list[str]:
@@ -328,6 +416,59 @@ def _md_table(results, base, fm) -> list[str]:
         rows.append(f"| {rid} | {r['passed']}/{r['total']} = {r['score']:.0%} | "
                     f"{drop_s} | {cause} | {symptom} | {mode_label(fm, rid)} |")
     return rows
+
+
+def _part3_md(results) -> list[str]:
+    df = load_defenses()
+    steps = harness_step_count()
+    p95 = reliability.success(0.95, steps)
+    md = ["## Part 3 — Defenses & recovery (one defense per mode)\n",
+          f"*Source: {df['source']}.* Apply the matching defense, re-run, watch the "
+          "broken row flip back to OK and the score recover.\n",
+          "| break | mode | defense | break | recover | delta | rows flipped → OK | simulated? |",
+          "|---|---|---|---|---|---|---|---|"]
+    for bid in sorted(df["recoveries"]):
+        rec = df["recoveries"][bid]
+        rr = score_run(rec["run"], verbose=False)
+        bscore = results[bid]["score"]
+        rows = ", ".join(f"row {n}" for n in rec["flips_rows"])
+        sim = "yes (simulated)" if rec.get("simulated") else "no"
+        md.append(f"| {bid} | {rec['mode']} | {rec['defense']} | {bscore:.0%} | "
+                  f"{rr['score']:.0%} | +{rr['score'] - bscore:.0%} | {rows} | {sim} |")
+    md.append("\n**How each defense was realized:**")
+    for bid in sorted(df["recoveries"]):
+        rec = df["recoveries"][bid]
+        md.append(f"- **{bid} → {rec['run']}** — {rec['applied']}")
+    md.append(f"\n> **Sharp finding (break3).** {df['recoveries']['break3']['finding']}\n")
+
+    nb = df["no_break_modes"]
+    md.append("### Defenses for modes with no break here\n")
+    md.append(nb["note"] + "\n")
+    md.append("| mode | defense | incident |")
+    md.append("|---|---|---|")
+    for key in ["distraction", "confusion"]:
+        m = nb[key]
+        md.append(f"| {key.capitalize()} | {m['defense']} | {m['incident']} — "
+                  f"{m['incident_note']} |")
+
+    md.append("\n### Reliability ceiling\n")
+    md.append("`success = per_step_reliability ^ step_count` — a structural ceiling. "
+              "Defenses raise *p*; they cannot change the shape of *p^n*.\n")
+    md += reliability.render_markdown(harness_steps=steps)
+    md.append(f"\nThis harness runs ~**{steps} steps**; even at p=0.95 that is "
+              f"**{p95:.0%}** end-to-end. The article's anchors: 0.95^20 ≈ 36%, "
+              "0.95^5 ≈ 77%.\n")
+
+    md.append("### Four-defense audit — the harness as a feature\n")
+    md.append("| defense (mode) | status in this harness |")
+    md.append("|---|---|")
+    md.append("| guardrails (Poisoning) | **in scope** — verify-before-act + retrieval correction (recover2, recover4) |")
+    md.append("| isolation (Clash) | **simulated only** — single-thread rule-gate; no real orchestrator (recover1) |")
+    md.append("| compaction (Distraction) | **in scope as the cure** for break3 (scoped compaction); no Distraction break |")
+    md.append("| tool loadout (Confusion) | **structurally satisfied** — only 2 narrow tools; no Confusion break |")
+    md.append(f"| reliability ceiling | ~{steps} steps → {p95:.0%} at p=0.95; defenses raise p, not the ceiling |")
+    md.append("")
+    return md
 
 
 def _write_markdown(results, base, fm) -> None:
@@ -401,6 +542,8 @@ def _write_markdown(results, base, fm) -> None:
               f"case studies cover "
               f"{', '.join(c.capitalize() for c in cov['case_studies_cover'])}. "
               f"{cov['note']}\n")
+
+    md += _part3_md(results)
 
     out_path = RUNS_DIR / "report.md"
     with open(out_path, "w", encoding="utf-8") as fh:

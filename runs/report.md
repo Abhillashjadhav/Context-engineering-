@@ -93,3 +93,57 @@ Real cases supply the two modes the synthetic breaks never produce:
 
 > **Coverage.** Synthetic breaks cover Clash, Poisoning; case studies cover Distraction, Confusion. The synthetic breaks naturally produce Clash (break1, loosely) and Poisoning (break2 loosely, break4 strongly); they never produce Distraction or Confusion (those need long / superfluous aggregate context, which a short 4-turn scenario does not create). break3 lands outside the taxonomy entirely (omission gap). The two case studies round out Distraction + Confusion. Together: all four modes are illustrated.
 
+## Part 3 — Defenses & recovery (one defense per mode)
+
+*Source: Drew Breunig — "How to Fix Your Context" (2025); defenses quoted verbatim.* Apply the matching defense, re-run, watch the broken row flip back to OK and the score recover.
+
+| break | mode | defense | break | recover | delta | rows flipped → OK | simulated? |
+|---|---|---|---|---|---|---|---|
+| break1 | clash | isolation | 96% | 100% | +4% | row 1 | yes (simulated) |
+| break2 | poisoning | architectural guardrails | 96% | 100% | +4% | row 3 | no |
+| break3 | none (omission) | scoped compaction | 96% | 100% | +4% | row 4, row 7 | no |
+| break4 | poisoning | architectural guardrails | 96% | 100% | +4% | row 6 | no |
+
+**How each defense was realized:**
+- **break1 → recover1** — isolate the recommend decision so the rule governs it directly (rule-gate on the final step)
+- **break2 → recover2** — guardrail / retrieval correction: a relevance check rejects the off-need near-match and re-retrieves
+- **break3 → recover3** — scoped compaction: never compact protected constraints (pin the 'under $60' commitment)
+- **break4 → recover4** — verify-before-act: re-verify against ground-truth stock before recommending
+
+> **Sharp finding (break3).** SHARP: break3's cause was compaction — which is itself the Distraction DEFENSE. So the cure is not 'less compaction' or 'more compaction' but SCOPED compaction: protected constraints are never summarized away. The same mechanism is both a defense (for Distraction) and, unscoped, the cause (of this omission).
+
+### Defenses for modes with no break here
+
+Distraction and Confusion have NO break in this harness — a short 4-turn scenario never grows long or cluttered enough. We do NOT fake recovery runs for them; instead we map their defenses to real incidents.
+
+| mode | defense | incident |
+|---|---|---|
+| Distraction | compaction (clear stale tokens) | Gemini plays Pokémon — Long play sessions accumulate stale tokens; the agent over-focuses on a bloated transcript. Needs compaction to clear stale tokens. |
+| Confusion | tool loadout (smallest tool set, narrowest permissions) | PocketOS (Apr 2026) — Missing loadout/guardrail let superfluous tools and accumulated state degrade responses. Needs a trimmed tool loadout. |
+
+### Reliability ceiling
+
+`success = per_step_reliability ^ step_count` — a structural ceiling. Defenses raise *p*; they cannot change the shape of *p^n*.
+
+| steps | p=0.90 | p=0.95 | p=0.99 | note |
+|---|---|---|---|---|
+| 1 | 90% | 95% | 99% |  |
+| 5 | 59% | 77% | 95% | article: ~77% |
+| 10 | 35% | 60% | 90% |  |
+| 11 | 31% | 57% | 90% | **this harness** |
+| 20 | 12% | 36% | 82% | article: ~36% |
+| 50 | 1% | 8% | 61% |  |
+| 100 | 0% | 1% | 37% |  |
+
+This harness runs ~**11 steps**; even at p=0.95 that is **57%** end-to-end. The article's anchors: 0.95^20 ≈ 36%, 0.95^5 ≈ 77%.
+
+### Four-defense audit — the harness as a feature
+
+| defense (mode) | status in this harness |
+|---|---|
+| guardrails (Poisoning) | **in scope** — verify-before-act + retrieval correction (recover2, recover4) |
+| isolation (Clash) | **simulated only** — single-thread rule-gate; no real orchestrator (recover1) |
+| compaction (Distraction) | **in scope as the cure** for break3 (scoped compaction); no Distraction break |
+| tool loadout (Confusion) | **structurally satisfied** — only 2 narrow tools; no Confusion break |
+| reliability ceiling | ~11 steps → 57% at p=0.95; defenses raise p, not the ceiling |
+
