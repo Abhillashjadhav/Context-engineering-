@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import html
 
-from report import (BREAK_TITLES, DASHBOARD_RUNS, RUNS_DIR, load_trajectory,
-                    score_run)
+from report import (BREAK_TITLES, DASHBOARD_RUNS, RUNS_DIR, load_failure_modes,
+                    load_trajectory, mode_label, score_run)
 
 
 def esc(s) -> str:
@@ -49,8 +49,10 @@ def _cell(row: dict) -> str:
 
 
 def _scoreboard(results: dict, base: float) -> str:
+    fm = load_failure_modes()
     head = ("<tr><th>run</th><th>score</th><th>drop vs V1</th>"
-            "<th>broken input (cause)</th><th>failed check (symptom)</th></tr>")
+            "<th>broken input (cause)</th><th>failed check (symptom)</th>"
+            "<th>failure mode (Breunig)</th></tr>")
     body = []
     for rid in DASHBOARD_RUNS:
         r = results[rid]
@@ -65,11 +67,12 @@ def _scoreboard(results: dict, base: float) -> str:
             f'{esc(BREAK_TITLES[rid])}</span></td>'
             f'<td class="num">{r["passed"]}/{r["total"]}<br>{r["score"]:.0%}</td>'
             f'<td class="num">{drop}</td><td>{esc(cause)}</td>'
-            f'<td>{esc(symptom)}</td></tr>')
+            f'<td>{esc(symptom)}</td><td>{esc(mode_label(fm, rid))}</td></tr>')
     return f'<table class="scoreboard">{head}{"".join(body)}</table>'
 
 
 def _diff_block(rid: str, baseline: dict, results: dict) -> str:
+    fm = load_failure_modes()
     traj = load_trajectory(rid)
     tid, broken_inputs = _break_turn(traj)
     v2_rows, v2_reply = _turn_map(traj, tid)
@@ -97,7 +100,8 @@ def _diff_block(rid: str, baseline: dict, results: dict) -> str:
     <section class="break">
       <h2>{esc(rid)} — {esc(BREAK_TITLES[rid])}</h2>
       <p class="meta">break turn: <b>{esc(tid)}</b> &middot; broken input(s):
-         <b>{', '.join(f'input {n}' for n in sorted(broken_inputs))}</b></p>
+         <b>{', '.join(f'input {n}' for n in sorted(broken_inputs))}</b>
+         &middot; failure mode: <b>{esc(mode_label(fm, rid))}</b></p>
       <table class="audit">
         <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
             <th>V2 — {esc(rid)} (broken)</th><th></th></tr>

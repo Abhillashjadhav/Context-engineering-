@@ -37,7 +37,7 @@ footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(
    <i>context is the variable, not the model — presence ≠ sufficiency</i></p>
 
 <h2>Scoreboard</h2>
-<table class="scoreboard"><tr><th>run</th><th>score</th><th>drop vs V1</th><th>broken input (cause)</th><th>failed check (symptom)</th></tr><tr class="ok-row"><td><b>baseline</b><br><span class="sub">Clean baseline (all seven inputs OK)</span></td><td class="num">24/24<br>100%</td><td class="num">—</td><td>none</td><td>none</td></tr><tr class="break-row"><td><b>break1</b><br><span class="sub">System instruction present-but-ignored (Replit pattern)</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 1</td><td>C1</td></tr><tr class="break-row"><td><b>break2</b><br><span class="sub">Retrieval gap</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 3</td><td>C4</td></tr><tr class="break-row"><td><b>break3</b><br><span class="sub">Compaction drops a constraint</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 4, input 7</td><td>C5</td></tr><tr class="break-row"><td><b>break4</b><br><span class="sub">Stale prior tool output</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 6</td><td>C1</td></tr></table>
+<table class="scoreboard"><tr><th>run</th><th>score</th><th>drop vs V1</th><th>broken input (cause)</th><th>failed check (symptom)</th><th>failure mode (Breunig)</th></tr><tr class="ok-row"><td><b>baseline</b><br><span class="sub">Clean baseline (all seven inputs OK)</span></td><td class="num">24/24<br>100%</td><td class="num">—</td><td>none</td><td>none</td><td>—</td></tr><tr class="break-row"><td><b>break1</b><br><span class="sub">System instruction present-but-ignored (Replit pattern)</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 1</td><td>C1</td><td>Clash (loose)</td></tr><tr class="break-row"><td><b>break2</b><br><span class="sub">Retrieval gap</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 3</td><td>C4</td><td>Poisoning (loose)</td></tr><tr class="break-row"><td><b>break3</b><br><span class="sub">Compaction drops a constraint</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 4, input 7</td><td>C5</td><td>none (gap)</td></tr><tr class="break-row"><td><b>break4</b><br><span class="sub">Stale prior tool output</span></td><td class="num">23/24<br>96%</td><td class="num">-4%</td><td>input 6</td><td>C1</td><td>Poisoning</td></tr></table>
 <p class="legend">Each break compromises exactly one input; the score drops and
    the audit row that flipped names the cause.
    <span class="badge ok">OK</span>
@@ -48,7 +48,8 @@ footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(
     <section class="break">
       <h2>break1 — System instruction present-but-ignored (Replit pattern)</h2>
       <p class="meta">break turn: <b>turn3</b> &middot; broken input(s):
-         <b>input 1</b></p>
+         <b>input 1</b>
+         &middot; failure mode: <b>Clash (loose)</b></p>
       <table class="audit">
         <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
             <th>V2 — break1 (broken)</th><th></th></tr>
@@ -63,7 +64,8 @@ footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(
     <section class="break">
       <h2>break2 — Retrieval gap</h2>
       <p class="meta">break turn: <b>turn1</b> &middot; broken input(s):
-         <b>input 3</b></p>
+         <b>input 3</b>
+         &middot; failure mode: <b>Poisoning (loose)</b></p>
       <table class="audit">
         <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
             <th>V2 — break2 (broken)</th><th></th></tr>
@@ -78,7 +80,8 @@ footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(
     <section class="break">
       <h2>break3 — Compaction drops a constraint</h2>
       <p class="meta">break turn: <b>turn4</b> &middot; broken input(s):
-         <b>input 4, input 7</b></p>
+         <b>input 4, input 7</b>
+         &middot; failure mode: <b>none (gap)</b></p>
       <table class="audit">
         <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
             <th>V2 — break3 (broken)</th><th></th></tr>
@@ -93,7 +96,8 @@ footer{margin-top:34px;color:var(--sub);font-size:12px;border-top:1px solid var(
     <section class="break">
       <h2>break4 — Stale prior tool output</h2>
       <p class="meta">break turn: <b>turn3</b> &middot; broken input(s):
-         <b>input 6</b></p>
+         <b>input 6</b>
+         &middot; failure mode: <b>Poisoning</b></p>
       <table class="audit">
         <tr><th>#</th><th>Input</th><th>V1 — baseline (clean)</th>
             <th>V2 — break4 (broken)</th><th></th></tr>
