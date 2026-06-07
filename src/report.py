@@ -110,9 +110,12 @@ def score_run(run_id: str, verbose: bool = True) -> dict:
     total = passed = 0
     failed_detail = []
     per_turn = []
+    broken_inputs = set()
 
     for turn in traj["turns"]:
         tid = turn["id"]
+        for k in turn.get("broken", {}):
+            broken_inputs.add(int(k))
         exp = expectations[tid]
         results = {}
         for c in checks:
@@ -148,7 +151,8 @@ def score_run(run_id: str, verbose: bool = True) -> dict:
         print("=" * 88)
 
     return {"run_id": run_id, "passed": passed, "total": total,
-            "score": score, "failed": failed_detail}
+            "score": score, "failed": failed_detail,
+            "broken_inputs": sorted(broken_inputs)}
 
 
 def comparison(run_ids: list[str]) -> None:
@@ -157,15 +161,21 @@ def comparison(run_ids: list[str]) -> None:
     print("=" * 88)
     print("TRAJECTORY COMPARISON — baseline vs breaks")
     print("=" * 88)
-    print(f"{'run':<14}{'score':<12}{'drop vs base':<16}broken inputs / failed checks")
+    print(f"{'run':<12}{'score':<14}{'drop':<8}{'broken input (cause)':<24}"
+          "failed check (symptom)")
     print("-" * 88)
     for r in rows:
         drop = base - r["score"]
         drop_s = "—" if r is rows[0] else f"-{drop:.0%}"
-        broken = ", ".join(sorted({f"in{inp}:{cid.split('_')[0]}"
-                                   for _, cid, inp, _ in r["failed"]})) or "none"
-        print(f"{r['run_id']:<14}{r['passed']}/{r['total']} = {r['score']:<5.0%}"
-              f"   {drop_s:<13}{broken}")
+        cause = (", ".join(f"input {n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({cid.split("_")[0] for _, cid, _, _ in r["failed"]})) \
+            or "none"
+        print(f"{r['run_id']:<12}{r['passed']}/{r['total']} = {r['score']:<6.0%}"
+              f"{drop_s:<8}{cause:<24}{symptom}")
+    print("=" * 88)
+    print("note: break #1 and break #4 share the symptom (C1) but differ in cause —")
+    print("      input 1 (rule ignored) vs input 6 (stale tool). That is the point.")
     print("=" * 88)
 
 
