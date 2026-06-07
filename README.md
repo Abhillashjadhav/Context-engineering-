@@ -70,13 +70,58 @@ Baseline scores high; each break drops the score in a measured, traceable way.
 
 ```
 .
-├── data/    # catalog.json + generated scenarios (inputs)
-├── src/     # prepare.py, report.py, context_bundle.py (deterministic)
-├── runs/    # trajectory logs from Claude in-loop (baseline + 4 breaks)
-└── eval/    # checklist.json — the LOCKED eval checklist
+├── data/    # catalog.json (25 items) + scenarios.json (the 4-turn conversation)
+├── src/     # prepare.py, context_bundle.py, harness.py, run_*.py, report.py
+├── runs/    # trajectory logs (baseline + 4 breaks) + report.md dashboard
+├── eval/    # checklist.json — the LOCKED eval checklist (validator-side)
+├── NARRATION.md   # first-person write-up: what was built and what it proves
+└── README.md
 ```
+
+- `src/prepare.py` — catalog + deterministic keyword retrieval.
+- `src/context_bundle.py` — the seven-input bundle + Context Audit table (OK/GAP/BROKEN).
+- `src/harness.py` — shared scenario loading, honest tool execution, bundle assembly.
+- `src/run_baseline.py`, `src/run_break{1..4}.py` — Claude in-session writes the
+  assistant turns; each break compromises exactly one input.
+- `src/report.py` — deterministic scorer + trace dashboard. Never generates.
+- `eval/checklist.json` — six binary checks + per-turn ground truth, **frozen**.
+
+## Run it
+
+```bash
+cd src
+python3 run_baseline.py        # generate the clean trajectory -> runs/baseline.json
+python3 run_break1.py          # ... and each break -> runs/break1.json, etc.
+python3 run_break2.py
+python3 run_break3.py
+python3 run_break4.py
+python3 report.py dashboard    # score all five + render the trace dashboard + report.md
+python3 report.py baseline     # single-run detail: full Context Audit + per-check results
+```
+
+No API key, no network, no paid services — fully deterministic and reproducible.
+
+## Results
+
+Baseline scores a perfect trajectory; each break drops it by exactly one check,
+traceable to a single input via the audit row that flips to BROKEN:
+
+| run | score | drop | broken input (cause) | failed check (symptom) |
+|---|---|---|---|---|
+| baseline | 24/24 = 100% | — | none | none |
+| break1 | 23/24 = 96% | -4% | input 1 | C1 |
+| break2 | 23/24 = 96% | -4% | input 3 | C4 |
+| break3 | 23/24 = 96% | -4% | input 4, input 7 | C5 |
+| break4 | 23/24 = 96% | -4% | input 6 | C1 |
+
+**The headline:** break #1 and break #4 produce the *same symptom* (recommend an
+out-of-stock item → C1 fails) from *opposite root causes* — break #1 ignored a
+truthful rule (row 1 BROKEN), break #4 trusted a lying tool (row 6 BROKEN). The
+symptom doesn't tell you where it failed; the Context Audit does. See
+[`NARRATION.md`](NARRATION.md) for the full write-up and [`runs/report.md`](runs/report.md)
+for the generated dashboard.
 
 ## Status
 
-Step 0 — scaffold. Subsequent steps build catalog/retrieval, the context
-bundler + audit table, the baseline run, the four breaks, and the report.
+Complete — baseline + four breaks build, run, and score; dashboard and narration
+emitted. Builder/validator separation holds: the generator never scores itself.

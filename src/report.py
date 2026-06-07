@@ -179,9 +179,140 @@ def comparison(run_ids: list[str]) -> None:
     print("=" * 88)
 
 
+DASHBOARD_RUNS = ["baseline", "break1", "break2", "break3", "break4"]
+BREAK_TITLES = {
+    "baseline": "Clean baseline (all seven inputs OK)",
+    "break1": "System instruction present-but-ignored (Replit pattern)",
+    "break2": "Retrieval gap",
+    "break3": "Compaction drops a constraint",
+    "break4": "Stale prior tool output",
+}
+
+
+def _broken_lines(run_id: str) -> list[dict]:
+    """For a run, the turn(s) with a BROKEN audit row + the row details."""
+    traj = load_trajectory(run_id)
+    out = []
+    for turn in traj["turns"]:
+        if turn.get("broken"):
+            rows = [r for r in turn["audit"] if r["status"] == "BROKEN"]
+            out.append({"turn": turn["id"], "reply": turn["assistant_reply"],
+                        "rows": rows})
+    return out
+
+
+def dashboard(write_md: bool = True) -> None:
+    results = {rid: score_run(rid, verbose=False) for rid in DASHBOARD_RUNS}
+    base = results["baseline"]["score"]
+
+    lines = []
+    P = lines.append
+    P("=" * 92)
+    P("CONTEXT AUDIT HARNESS — TRACE DASHBOARD")
+    P("context is the variable, not the model  |  presence != sufficiency")
+    P("=" * 92)
+    P(f"{'run':<11}{'score':<14}{'drop':<8}{'broken input (cause)':<24}"
+      "failed check (symptom)")
+    P("-" * 92)
+    for rid in DASHBOARD_RUNS:
+        r = results[rid]
+        drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
+        cause = (", ".join(f"in{n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({c.split("_")[0]
+                                    for _, c, _, _ in r["failed"]})) or "none"
+        P(f"{rid:<11}{r['passed']}/{r['total']} = {r['score']:<6.0%}"
+          f"{drop_s:<8}{cause:<24}{symptom}")
+    P("=" * 92)
+    P("THE ONE LINE THAT FLIPPED  (the failure is visible in a single audit row)")
+    P("=" * 92)
+    for rid in DASHBOARD_RUNS[1:]:
+        r = results[rid]
+        P(f"\n[{rid}] {BREAK_TITLES[rid]}")
+        for bl in _broken_lines(rid):
+            for row in bl["rows"]:
+                P(f"  {bl['turn']}  row {row['n']} {row['input']} -> BROKEN")
+                P(f"         cause: {row['reason']}")
+        for tid, cid, inp, note in r["failed"]:
+            P(f"  {tid}  {cid} FAIL (input {inp}): {note}")
+    P("=" * 92)
+    P("HEADLINE — break #1 vs break #4: same symptom, opposite cause, opposite fix")
+    P("=" * 92)
+    P("  symptom (both):  recommended an out-of-stock item  ->  C1 fails")
+    P("  break #1 cause:  input 1 — model IGNORED a truthful rule (row 1 BROKEN)")
+    P("  break #4 cause:  input 6 — a LYING tool output was trusted (row 6 BROKEN)")
+    P("  break #1 fix:    make the model obey the rule already in context")
+    P("  break #4 fix:    fix the stale tool; the model behaved correctly on bad data")
+    P("  takeaway:        the symptom (C1) does NOT tell you where it failed.")
+    P("                   the Context Audit row that flipped does.")
+    P("=" * 92)
+
+    text = "\n".join(lines)
+    print(text)
+    if write_md:
+        _write_markdown(results, base)
+
+
+def _md_table(results, base) -> list[str]:
+    rows = ["| run | score | drop | broken input (cause) | failed check (symptom) |",
+            "|---|---|---|---|---|"]
+    for rid in DASHBOARD_RUNS:
+        r = results[rid]
+        drop_s = "—" if rid == "baseline" else f"-{base - r['score']:.0%}"
+        cause = (", ".join(f"input {n}" for n in r["broken_inputs"])
+                 if r["broken_inputs"] else "none")
+        symptom = ", ".join(sorted({c.split("_")[0]
+                                    for _, c, _, _ in r["failed"]})) or "none"
+        rows.append(f"| {rid} | {r['passed']}/{r['total']} = {r['score']:.0%} | "
+                    f"{drop_s} | {cause} | {symptom} |")
+    return rows
+
+
+def _write_markdown(results, base) -> None:
+    md = []
+    md.append("# Context Audit Harness — Trace Dashboard\n")
+    md.append("> *context is the variable, not the model* — and "
+              "*presence ≠ sufficiency*.\n")
+    md.append("Baseline vs four breaks. Each break compromises exactly one of the "
+              "seven context inputs; the score drops and the Context Audit shows "
+              "which row flipped.\n")
+    md.append("## Scoreboard\n")
+    md += _md_table(results, base)
+    md.append("\n## The one line that flipped\n")
+    md.append("For each break, the single audit row that went BROKEN (the cause) "
+              "and the check it tripped (the symptom):\n")
+    for rid in DASHBOARD_RUNS[1:]:
+        r = results[rid]
+        md.append(f"### {rid} — {BREAK_TITLES[rid]}\n")
+        for bl in _broken_lines(rid):
+            for row in bl["rows"]:
+                md.append(f"- **{bl['turn']} · row {row['n']} "
+                          f"({row['input']}) → BROKEN** — {row['reason']}")
+        for tid, cid, inp, note in r["failed"]:
+            md.append(f"- {tid} · `{cid}` **FAIL** (input {inp}): {note}")
+        md.append("")
+    md.append("## Headline: break #1 vs break #4\n")
+    md.append("Same symptom, opposite root cause, opposite fix:\n")
+    md.append("| | break #1 | break #4 |")
+    md.append("|---|---|---|")
+    md.append("| symptom | recommends OOS item → C1 fails | recommends OOS item → C1 fails |")
+    md.append("| cause | input 1 — rule ignored (row 1 BROKEN) | input 6 — stale tool trusted (row 6 BROKEN) |")
+    md.append("| the tool said | \"out of stock\" (truthful) | \"in stock\" (stale/lying) |")
+    md.append("| the rule was | present and ignored | honored on bad data |")
+    md.append("| fix | make the model obey the rule | fix the stale tool |")
+    md.append("\n**The symptom (C1) does not tell you where it failed. The Context "
+              "Audit row that flipped does.**\n")
+    out_path = RUNS_DIR / "report.md"
+    with open(out_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(md) + "\n")
+    print(f"\nmarkdown dashboard written -> {out_path.relative_to(ROOT)}")
+
+
 if __name__ == "__main__":
-    args = sys.argv[1:] or ["baseline"]
-    if len(args) == 1:
+    args = sys.argv[1:] or ["dashboard"]
+    if args[0] == "dashboard":
+        dashboard()
+    elif len(args) == 1:
         score_run(args[0])
     else:
         comparison(args)
