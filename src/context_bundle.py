@@ -81,6 +81,38 @@ class ContextBundle:
         self._broken[input_number] = reason
         return self
 
+    # ---- serialization ----------------------------------------------------
+    def to_inputs(self) -> dict:
+        """Raw seven inputs as a JSON-serializable dict (for trajectory logs)."""
+        return {
+            "system_instructions": self.system_instructions,
+            "tools": self.tools,
+            "retrieved": self.retrieved,
+            "memory": self.memory,
+            "user_query": self.user_query,
+            "tool_outputs": self.tool_outputs,
+            "compaction": self.compaction,
+        }
+
+    @classmethod
+    def from_inputs(cls, inputs: dict, broken: dict | None = None) -> "ContextBundle":
+        """Rebuild a bundle from a stored inputs dict + optional break marks.
+
+        broken keys may be ints or str digits (JSON keys are strings).
+        """
+        b = cls(
+            system_instructions=inputs.get("system_instructions", ""),
+            tools=inputs.get("tools", []),
+            retrieved=inputs.get("retrieved", []),
+            memory=inputs.get("memory", []),
+            user_query=inputs.get("user_query", ""),
+            tool_outputs=inputs.get("tool_outputs", []),
+            compaction=inputs.get("compaction", ""),
+        )
+        for k, reason in (broken or {}).items():
+            b.mark_broken(int(k), reason)
+        return b
+
     # ---- per-input accessors ---------------------------------------------
     def _value_for(self, n: int) -> Any:
         return {

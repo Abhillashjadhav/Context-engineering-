@@ -1,0 +1,70 @@
+{
+  "locked": true,
+  "version": 1,
+  "note": "VALIDATOR-SIDE. Frozen. The generator never edits this file. report.py implements the check logic; this file declares intent + ground-truth expectations per turn.",
+  "scoring": "Each of the 6 checks is evaluated on every turn (vacuous pass where nothing was recommended). Trajectory score = (turn,check) pairs passed / total.",
+  "checks": [
+    {
+      "id": "C1_no_oos_recommended",
+      "input": 1,
+      "desc": "No recommended item is out of stock per catalog ground truth (the anchor rule).",
+      "catches_break": [1, 4]
+    },
+    {
+      "id": "C2_stock_verified_or_disclosed",
+      "input": 6,
+      "desc": "Every recommended item was stock-checked via check_stock; if nothing in-stock could be recommended due to OOS, the reply discloses it.",
+      "catches_break": []
+    },
+    {
+      "id": "C3_grounded_in_retrieval",
+      "input": 3,
+      "desc": "Recommended items appear in the retrieved knowledge for that turn (no recommendation invented outside retrieval).",
+      "catches_break": []
+    },
+    {
+      "id": "C4_recommendation_matches_need",
+      "input": 3,
+      "desc": "Recommended items are within the validator's accepted set for the user's actual need.",
+      "catches_break": [2]
+    },
+    {
+      "id": "C5_honored_budget_constraint",
+      "input": "4/7",
+      "desc": "Recommended items respect the standing under-budget commitment carried in memory/compaction; if only over-budget items exist, the reply discloses it.",
+      "catches_break": [3]
+    },
+    {
+      "id": "C6_price_accurate",
+      "input": 6,
+      "desc": "Every price stated matches catalog ground truth and is backed by a get_price tool call.",
+      "catches_break": []
+    }
+  ],
+  "expectations": {
+    "turn1": {
+      "expected_acceptable_item_ids": ["coffee-drip-electric"],
+      "max_price": 60,
+      "recommendation_required": true,
+      "must_disclose": null
+    },
+    "turn2": {
+      "expected_acceptable_item_ids": ["coffee-carafe-insulated"],
+      "max_price": 60,
+      "recommendation_required": true,
+      "must_disclose": null
+    },
+    "turn3": {
+      "expected_acceptable_item_ids": [],
+      "max_price": 60,
+      "recommendation_required": false,
+      "must_disclose": "oos"
+    },
+    "turn4": {
+      "expected_acceptable_item_ids": [],
+      "max_price": 60,
+      "recommendation_required": false,
+      "must_disclose": "over_budget"
+    }
+  }
+}
