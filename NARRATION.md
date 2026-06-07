@@ -213,3 +213,92 @@ Confusion. Two real cases supply the rest:
 Together — two synthetic modes, two case-study modes — all four are illustrated,
 with break #3 standing outside as the honest reminder that the taxonomy isn't
 complete.
+
+---
+
+# Part 3 — defenses and the reliability ceiling
+
+Parts 1 and 2 diagnosed: *where* it broke (the seven-input audit) and *how* it
+failed (the four modes). Part 3 closes the loop: *defend* it — and then admit the
+limit even good defenses can't cross.
+
+## One defense per mode
+
+Breunig pairs each failure mode with a defense:
+
+- **Poisoning → architectural guardrails** (read-only creds, dev/prod separation,
+  verify-before-act).
+- **Distraction → compaction** (clear stale tokens).
+- **Confusion → tool loadout** (smallest tool set, narrowest permissions).
+- **Clash → isolation** (orchestrator holds the plan, sub-agents see only what
+  they need).
+
+## Recovery — apply the defense, re-run, watch the row flip back
+
+For each break that a defense applies to, I re-ran the scenario with the defense
+in place and re-generated the affected turn. The previously-BROKEN audit row
+flips back to OK and the trajectory recovers to 24/24:
+
+- **break #4 (Poisoning) → guardrail.** A *verify-before-act* check re-reads
+  ground-truth stock before recommending. The stale "in stock" is still in the
+  cache, but the guardrail catches it. Row 6 → OK.
+- **break #2 (loose Poisoning) → guardrail / retrieval correction.** A relevance
+  check rejects the off-need pour-over and re-retrieves the electric maker.
+  Row 3 → OK.
+- **break #1 (Clash) → isolation/guardrail.** The recommend step is isolated
+  behind a rule-gate so the rule governs it directly. Row 1 → OK. **This is a
+  simulated defense** — real isolation is an orchestrator/sub-agent architecture;
+  in a single-thread harness I approximate it and say so rather than overclaim.
+- **break #3 (no mode) → scoped compaction.** The "under $60" commitment is
+  pinned so summarization can't drop it. Rows 4 and 7 → OK.
+
+Honest framing: in a deterministic harness where I author the corrected turns,
+recovery is *demonstrative*, not a statistical result. The point is that each
+defense targets the exact broken input and flips exactly that row — the same
+single-line traceability as the breaks, run in reverse.
+
+## The sharp finding: compaction is both cause and cure
+
+break #3 is the one that pays off twice. Its *cause* was compaction dropping a
+constraint — and compaction is *itself the defense for Distraction*. So the same
+mechanism is, depending on how it's used, either a defense or the thing that
+breaks you. The cure isn't "less compaction" (you'd lose the Distraction
+defense) or "more compaction" (you'd drop more constraints). It's **scoped
+compaction**: protected constraints are never summarized away. A defense applied
+without scoping became a failure; the fix is to scope it.
+
+## Two modes with no break — mapped, not faked
+
+Distraction and Confusion never occur in a short four-turn scenario, so I did
+**not** fabricate recovery runs for them. Instead I map their defenses to real
+incidents: **Gemini-plays-Pokémon** needs **compaction** (long sessions
+accumulate stale tokens); **PocketOS** needed a trimmed **tool loadout** (a
+missing loadout/guardrail let superfluous tools degrade responses).
+
+## The reliability ceiling — the limit defenses can't cross
+
+A multi-step agent succeeds end-to-end only if *every* step succeeds:
+
+    success = per_step_reliability ^ step_count
+
+This is structural. The article's anchors: **0.95^20 ≈ 36%**, **0.95^5 ≈ 77%**.
+This harness runs ~**11 steps** (each tool call and each generated turn is a
+step), which at p=0.95 is only **~57%** end-to-end. Push to 50 steps and even
+p=0.99 dips toward 60%.
+
+The lesson that closes the series: **defenses raise *p* — they make each step
+more reliable — but they cannot change the shape of *p^n*.** You buy reliability
+per step; you do not buy your way past the exponent. Past some step count, the
+honest move isn't a better prompt or another guardrail — it's fewer steps:
+shorter trajectories, more determinism, humans on the irreversible actions.
+
+## The whole arc
+
+1. **Audit** — make all seven inputs visible; a break flips one row (Part 1).
+2. **Name** — classify *how* the context failed with the four modes, honestly,
+   gaps and all (Part 2).
+3. **Defend + bound** — pair each mode with its defense, show recovery, and place
+   the result against the reliability ceiling (Part 3).
+
+Same model throughout. The variable was always the context — and even a
+well-defended context lives under a structural ceiling.

@@ -1,0 +1,78 @@
+{
+  "locked": true,
+  "note": "VALIDATOR-SIDE reference (Part 3). One defense per failure mode (verbatim), the recovery mapping per break, and the no-break modes mapped to real incidents. Read only by report.py / run_recoveries.py annotations; the scorer is unchanged.",
+  "source": "Drew Breunig — \"How to Fix Your Context\" (2025); defenses quoted verbatim",
+  "defenses": {
+    "poisoning": {
+      "mode": "Poisoning",
+      "defense": "architectural guardrails",
+      "detail": "read-only creds, dev/prod separation, verify-before-act"
+    },
+    "distraction": {
+      "mode": "Distraction",
+      "defense": "compaction",
+      "detail": "clear stale tokens"
+    },
+    "confusion": {
+      "mode": "Confusion",
+      "defense": "tool loadout",
+      "detail": "smallest tool set, narrowest permissions"
+    },
+    "clash": {
+      "mode": "Clash",
+      "defense": "isolation",
+      "detail": "orchestrator holds the plan, sub-agents see only what they need"
+    }
+  },
+  "recoveries": {
+    "break4": {
+      "run": "recover4",
+      "mode": "poisoning",
+      "defense": "architectural guardrails",
+      "applied": "verify-before-act: re-verify against ground-truth stock before recommending",
+      "flips_rows": [6],
+      "simulated": false,
+      "note": "The stale 'in stock' is still present (cached), but a verify-before-act guardrail re-checks ground truth before acting and catches it. Real, implementable defense."
+    },
+    "break1": {
+      "run": "recover1",
+      "mode": "clash",
+      "defense": "isolation",
+      "applied": "isolate the recommend decision so the rule governs it directly (rule-gate on the final step)",
+      "flips_rows": [1],
+      "simulated": true,
+      "note": "Isolation is architecture-level (orchestrator/sub-agents). In a single-thread harness we APPROXIMATE it as a rule-gate around the recommend step — a SIMULATED defense, not a full orchestrator implementation."
+    },
+    "break2": {
+      "run": "recover2",
+      "mode": "poisoning",
+      "defense": "architectural guardrails",
+      "applied": "guardrail / retrieval correction: a relevance check rejects the off-need near-match and re-retrieves",
+      "flips_rows": [3],
+      "simulated": false,
+      "note": "A relevance guardrail catches the off-need pour-over and re-retrieves the electric drip maker the user asked for."
+    },
+    "break3": {
+      "run": "recover3",
+      "mode": "none (omission)",
+      "defense": "scoped compaction",
+      "applied": "scoped compaction: never compact protected constraints (pin the 'under $60' commitment)",
+      "flips_rows": [4, 7],
+      "simulated": false,
+      "finding": "SHARP: break3's cause was compaction — which is itself the Distraction DEFENSE. So the cure is not 'less compaction' or 'more compaction' but SCOPED compaction: protected constraints are never summarized away. The same mechanism is both a defense (for Distraction) and, unscoped, the cause (of this omission)."
+    }
+  },
+  "no_break_modes": {
+    "note": "Distraction and Confusion have NO break in this harness — a short 4-turn scenario never grows long or cluttered enough. We do NOT fake recovery runs for them; instead we map their defenses to real incidents.",
+    "distraction": {
+      "defense": "compaction (clear stale tokens)",
+      "incident": "Gemini plays Pokémon",
+      "incident_note": "Long play sessions accumulate stale tokens; the agent over-focuses on a bloated transcript. Needs compaction to clear stale tokens."
+    },
+    "confusion": {
+      "defense": "tool loadout (smallest tool set, narrowest permissions)",
+      "incident": "PocketOS (Apr 2026)",
+      "incident_note": "Missing loadout/guardrail let superfluous tools and accumulated state degrade responses. Needs a trimmed tool loadout."
+    }
+  }
+}

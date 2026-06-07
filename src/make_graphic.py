@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 
-from report import DASHBOARD_RUNS, RUNS_DIR, score_run
+from report import DASHBOARD_RUNS, RUNS_DIR, load_failure_modes, mode_label, score_run
 
 # palette (dark theme, matches the HTML dashboard)
 BG = "#0d1117"; PANEL = "#161b22"; LINE = "#30363d"
@@ -69,6 +69,7 @@ def _wrap(t, w):
 def build():
     results = {r: score_run(r, verbose=False) for r in DASHBOARD_RUNS}
     base = results["baseline"]["score"]
+    fm = load_failure_modes()
 
     fig, ax = plt.subplots(figsize=(16, 10.5))
     fig.patch.set_facecolor(BG)
@@ -97,6 +98,7 @@ def build():
         r = results[b["run"]]
         drop = base - r["score"]
         check = ", ".join(sorted({c.split("_")[0] for _, c, _, _ in r["failed"]}))
+        mode = mode_label(fm, b["run"])
 
         # card
         card = FancyBboxPatch((0.008, y0), 0.984, row_h - gap,
@@ -114,8 +116,8 @@ def build():
                 fontweight="bold", va="top")
         ax.text(0.024, yt - 0.083, f"score 100% → {r['score']:.0%}   (−{drop:.0%})",
                 color=TXT, fontsize=11, va="top")
-        ax.text(0.024, yt - 0.115, f"failed check: {check}", color=BROKEN,
-                fontsize=10.5, va="top")
+        ax.text(0.024, yt - 0.115, f"failed check: {check}   ·   mode: {mode}",
+                color=BROKEN, fontsize=10.5, va="top")
         # mini score bar
         bx, bw = 0.024, 0.20
         ax.add_patch(plt.Rectangle((bx, yt - 0.150), bw, 0.012, color=LINE))

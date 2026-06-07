@@ -71,10 +71,11 @@ Baseline scores high; each break drops the score in a measured, traceable way.
 ```
 .
 ├── data/    # catalog.json (25 items) + scenarios.json (the 4-turn conversation)
-├── src/     # prepare.py, context_bundle.py, harness.py, run_*.py, report.py
-├── runs/    # trajectory logs (baseline + 4 breaks) + report.md / dashboard.html
-├── eval/    # checklist.json (LOCKED) + failure_modes.json (Part 2 lens)
-├── NARRATION.md   # first-person write-up: what was built and what it proves
+├── src/     # prepare.py, context_bundle.py, harness.py, run_*.py, report.py,
+│            #   run_recoveries.py (Part 3), reliability.py (Part 3)
+├── runs/    # trajectory logs (baseline + 4 breaks + 4 recoveries) + report.md / dashboard.html
+├── eval/    # checklist.json (LOCKED) + failure_modes.json (Part 2) + defenses.json (Part 3)
+├── NARRATION.md   # first-person write-up across all three parts
 └── README.md
 ```
 
@@ -88,6 +89,11 @@ Baseline scores high; each break drops the score in a measured, traceable way.
 - `eval/checklist.json` — six binary checks + per-turn ground truth, **frozen**.
 - `eval/failure_modes.json` — Part 2 taxonomy, per-break tags, case studies (read
   only by `report.py`; the generators never see it).
+- `src/run_recoveries.py` — Part 3: apply each mode's defense and re-run; the
+  broken row flips back to OK.
+- `src/reliability.py` — Part 3: pure-deterministic reliability ceiling
+  (`success = p ** steps`), no model in the loop.
+- `eval/defenses.json` — Part 3: one defense per mode (verbatim) + recovery map.
 
 ## Run it
 
@@ -98,8 +104,10 @@ python3 run_break1.py          # ... and each break -> runs/break1.json, etc.
 python3 run_break2.py
 python3 run_break3.py
 python3 run_break4.py
-python3 report.py dashboard    # score all five + render the trace dashboard + report.md
+python3 run_recoveries.py      # Part 3: apply each defense, re-run -> runs/recover{1..4}.json
+python3 report.py dashboard    # score all + render the trace dashboard (Parts 1-3) + report.md
 python3 report.py baseline     # single-run detail: full Context Audit + per-check results
+python3 reliability.py         # Part 3: the reliability-ceiling table on its own
 ```
 
 No API key, no network, no paid services — fully deterministic and reproducible.
@@ -158,10 +166,50 @@ depending on the mode.
 Distraction**. Synthetic breaks cover Clash + Poisoning; the case studies cover
 Distraction + Confusion — together, all four.
 
+## Part 3 — defenses + the reliability ceiling
+
+One defense per mode (`eval/defenses.json`, verbatim from Breunig): Poisoning →
+**guardrails**, Distraction → **compaction**, Confusion → **tool loadout**,
+Clash → **isolation**. For each break a defense applies to, the harness re-runs
+with the defense in place; the broken row flips back to OK and the score
+recovers:
+
+| break | mode | defense | break → recover | rows flipped → OK |
+|---|---|---|---|---|
+| break1 | Clash | isolation (simulated) | 96% → 100% | row 1 |
+| break2 | Poisoning | guardrail / retrieval correction | 96% → 100% | row 3 |
+| break3 | none (omission) | scoped compaction | 96% → 100% | rows 4, 7 |
+| break4 | Poisoning | guardrail (verify-before-act) | 96% → 100% | row 6 |
+
+**Sharp finding (break3):** its cause was *compaction* — which is itself the
+*Distraction defense*. The cure isn't less or more compaction but **scoped
+compaction**: never compact protected constraints. The same mechanism is both a
+defense and, unscoped, the cause.
+
+**Honest scoping:** isolation is approximated in a single thread and labelled
+*simulated*. Distraction and Confusion have no break here, so no recovery is
+faked — their defenses are mapped to real incidents (Gemini-Pokémon needs
+compaction; PocketOS needed a tool loadout).
+
+**The reliability ceiling** (`reliability.py`, pure deterministic):
+`success = per_step_reliability ^ step_count`.
+
+| steps | p=0.90 | p=0.95 | p=0.99 |
+|---|---|---|---|
+| 5 | 59% | 77% | 95% |
+| 11 (this harness) | 31% | 57% | 90% |
+| 20 | 12% | 36% | 82% |
+
+Article anchors: 0.95^20 ≈ 36%, 0.95^5 ≈ 77%. **Defenses raise *p*; they cannot
+change the shape of *p^n*.** Past some step count the fix isn't another guardrail
+— it's fewer steps.
+
 ## Status
 
-Complete — Part 1 (seven-input audit + four traceable breaks) and Part 2
-(failure-mode lens) build, run, and score; dashboard and narration emitted.
-Builder/validator separation holds: the generator never scores itself, and the
-Part 2 taxonomy is read only by the reporter. Re-running reproduces with zero
-diff.
+Complete — three parts. **Part 1** (seven-input audit + four traceable breaks),
+**Part 2** (failure-mode lens), and **Part 3** (one defense per mode + recovery
+runs + the reliability ceiling) all build, run, and score; dashboard and
+narration emitted. Builder/validator separation holds: the generator never
+scores itself, and the Part 2/3 reference layers are read only by the reporter.
+The reliability module is pure deterministic Python. Re-running reproduces with
+zero diff.
